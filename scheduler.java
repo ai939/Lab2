@@ -67,7 +67,10 @@ public class scheduler {
 
 		int numProcesses = in.nextInt();
 
-		ArrayList<process> processList = new ArrayList<process>();
+		ArrayList<process> processListFCFS = new ArrayList<process>();
+		ArrayList<process> processListRR = new ArrayList<process>();
+		ArrayList<process> processListSJF = new ArrayList<process>();
+		ArrayList<process> processListHPRN = new ArrayList<process>();
 
 		int A;
 		int B;
@@ -81,11 +84,22 @@ public class scheduler {
 			C = in.nextInt();
 			M = in.nextInt();
 
-			process toAdd = new process(A, B, C, M);
-			processList.add(toAdd);
+			process toAdd1 = new process(A, B, C, M, i);
+			process toAdd2 = new process(A, B, C, M, i);
+			process toAdd3 = new process(A, B, C, M, i);
+			process toAdd4 = new process(A, B, C, M, i);
+			processListFCFS.add(toAdd1);
+			processListRR.add(toAdd2);
+			processListSJF.add(toAdd3);
+			processListHPRN.add(toAdd4);
 		}
 
-		FCFS(processList);
+		sortList(processListFCFS);
+		sortList(processListRR);
+		sortList(processListSJF);
+		sortList(processListHPRN);
+
+		FCFS(processListFCFS);
 
 
 		return;
@@ -114,11 +128,113 @@ public class scheduler {
 	//(WOuld just need to add a few more conditional statements)
 	public static void FCFS(ArrayList<process> processList) {
 		int completed = 0;
-		int currProcess = 0;
-		ArrayList<process> mutableList = (ArrayList<process>) processList.clone(); //Make a list we can delete from
-		ArrayList<process> returnList = new ArrayList<process>();
-		//Selection sort each process based on arrival time
-		//NB: there's definitely a more efficient way to do this but later
+		int cycle = 0;
+		int CPUburst = 0, IOburst;
+
+		process running;
+		LinkedList<process> ready = new LinkedList<process>();
+		ArrayList<process> blocked = new ArrayList<process>();
+		ArrayList<process> notStarted = new ArrayList<process>(); //Process that hasn't started
+		ArrayList<process> finished = new ArrayList<process>(processList.size());
+
+		//The process list is sorted based on arrival time, so first process in that list is running
+		running = processList.get(0);
+
+		try {
+			CPUburst = RandomOS(running.getB(), randFile);
+			running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
+		}
+
+		catch (FileNotFoundException e) {
+			System.out.println("Random number generator not found");
+			System.exit(0);
+		}
+
+		//Everything else is waiting
+		for (int i = 1; i < processList.size(); i++) {
+			if (processList.get(i).getA() == 0) {
+				ready.addLast(processList.get(i)); //Put them in the back
+			}
+
+			else
+				notStarted.add(processList.get(i));
+		}
+
+		//While there;s still processes to run
+		while (completed < processList.size()) {
+			//Blocked processes
+			for (int i = 0; i < blocked.size(); i++) {
+				if (blocked.get(i).getRemainingIO() == 0) { 
+					ready.addLast(blocked.get(i));
+					blocked.remove(i);
+				}
+				if (!blocked.isEmpty()) {
+					blocked.get(i).increment(2);
+	
+				}			
+			}
+
+			if (running.getTimeRun() == running.getC()) {
+				finished.add(running.getPID(), running);
+				completed++;
+			}
+			//Running process
+			running.increment(0);
+
+			if (running.getRemainingCPU() == 0) {
+				blocked.add(running);
+				if (!ready.isEmpty()) {
+					running = ready.pop();
+				}
+			}
+
+
+			//Waiting process
+			for (int i = 0; i < notStarted.size(); i++) {
+				if (notStarted.get(i).getA() == cycle) {
+					ready.addLast(notStarted.get(i));
+				}
+			}
+
+			//Ready process
+			for (int i = 0; i < ready.size(); i++) {
+				ready.get(i).increment(1);
+			}
+
+
+			cycle++;
+		}
+	
+
+
+
+		//Printing stuff
+		System.out.println("Scheduling algorithm: FCFS");		
+		printSummary(finished);
+		
+
+		return;
+	}
+	
+
+	//Round Robin (q = 2)
+	public static void RR(ArrayList<process> processList) {
+		printSummary(processList);
+		return;
+	}
+
+	//Shortest Job First
+	public static void SJF(ArrayList<process> processList) {
+		return;
+	}
+
+	//Highest Penalty Run Next (?)
+	public static void HPRN (ArrayList<process> processList) {
+		return;
+	}
+
+	public static void sortList(ArrayList<process> processList) {
+		//Sort the list based on arrival time for later for later
 		for (int i = 0; i < processList.size(); i++) {
 			int minIndex = i;
 			for (int j = i + 1; j < processList.size(); j++) {
@@ -131,106 +247,6 @@ public class scheduler {
 				processList.set(i, temp);
 			}
 		}
-
-		//Default setup
-
-		//Set default states
-		processList.get(0).setState(0); //First arrival will always be in 0
-		for (int i = 1; i < processList.size(); i++) {
-			processList.get(i).setState(1); //Set everything else to ready at first
-		}
-
-		int CPUburst = 0, IOburst;
-
-		while (!mutableList.isEmpty()) { //while we still have processes to run
-			try { //OK, we need our CPU burst
-				CPUburst = RandomOS(mutableList.get(0).getB(), randFile);
-				if (CPUburst > mutableList.get(0).getC() - mutableList.get(0).getTimeRun()) {
-					CPUburst = mutableList.get(0).getC() - mutableList.get(0).getTimeRun();
-				}
-				mutableList.get(0).setRemainingCPU(CPUburst);
-			}
-
-			catch (FileNotFoundException e) {
-				System.out.println("Random number generator not found");
-				System.exit(1);
-			}
-
-			while (mutableList.get(0).getRemainingCPU() != 0) { //While our FCFS process is running, increment everything
-				for (int i = 0; i < mutableList.size(); i++) {
-					mutableList.get(i).increment(); 
-				}
-			}
-
-			//Need out IOburst
-			IOburst = CPUburst * mutableList.get(0).getM();
-			mutableList.get(0).setRemainingIO(IOburst);
-			mutableList.get(0).setState(2); //Change to blocked and put in the back of the line
-			process temp = mutableList.get(0);
-			mutableList.remove(0);
-			mutableList.add(temp);
-
-			//Check if anything should be unblocked
-			for (int i = 0; i < mutableList.size(); i++) {
-				if (mutableList.get(i).getRemainingIO() == 0) {
-					mutableList.get(i).setState(1); //If it's done with IO, it gets unblocked
-				}
-			}
-
-			//Check if something finished
-			if (mutableList.get(0).getC() == mutableList.get(0).getTimeRun()) {
-				process toAdd = mutableList.get(0);
-				mutableList.remove(0);
-				returnList.add(toAdd); 
-				completed++;
-				continue;
-			}
-
-			//If there's only one process remaining, and we need to get things unblocked
-			if (mutableList.size() == 1) {
-				while (mutableList.get(0).getRemainingIO() != 0) {
-					mutableList.get(0).increment();
-				}
-			}
-
-			
-
-			mutableList.get(0).setState(0);
-			//Mark everything else as ready, as long as it's not blocked
-			for (int i = 1; i < mutableList.size(); i++) {
-				if (mutableList.get(i).getState() == 2 || mutableList.get(i).getState() == 0) {
-					continue;
-				}
-				mutableList.get(i).setState(1); //Set everything else to ready at first
-			}
-
-		}
-
-
-
-
-
-		//Printing stuff
-		System.out.println("Scheduling algorithm: FCFS");		
-		printSummary(returnList);
-		
-
-		return;
-	}
-
-	//Round Robin (q = 2)
-	public static void RR(ArrayList<process> processList) {
-		return;
-	}
-
-	//Shortest Job First
-	public static void SJF(ArrayList<process> processList) {
-		return;
-	}
-
-	//Highest Penalty Run Next (?)
-	public static void HPRN (ArrayList<process> processList) {
-		return;
 	}
 
 	//Gotta get that uniformly distributed RV, sahn!

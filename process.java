@@ -1,8 +1,9 @@
 import java.util.*; //Might not need this 
 
 public class process {
+	private int PID;
+
 	private int A, B, C, M;
-	private int state; //Maybe a different data type? Initial plan is 0 = running, 1 = ready, 2 = blocked
 	private int finish = 0;
 	private int IOtime = 0;
 	private int waiting = 0;
@@ -13,40 +14,32 @@ public class process {
 
 
 	//Constructor. There's no need for a default. 
-	public process(int A, int B, int C, int M) {
+	public process(int A, int B, int C, int M, int PID) {
+		this.PID = PID;
+
 		this.A = A;
 		this.B = B;
 		this.C = C;
 		this.M = M;
 	}
 
-	public void setState(int newState) {
-		state = newState;
-		return;
+	public void increment(int type) {
+		finish += 1;
+
+		switch (type) {
+			case 0: remainingCPU -= 1; timeRun += 1; break;
+			case 1: waiting += 1; break;
+			case 2: IOtime += 1; remainingIOtime -= 1; break;
+			default: break;
+
+		}
 	}
+
 
 	//This doesn't actually need a setter, or a 
 	//data field, since it's just these two numbers
 	public int getTurnaround() {
 		return finish - A; 
-	}
-
-	//Maybe have this take an argument for time units
-	//Designed to increment the proper time based on what state
-	public void increment() {
-		finish += 1;
-
-		switch (state) {
-			case 0: timeRun += 1; remainingCPU -= 1; break;
-
-			case 1: waiting += 1; break;
-
-			case 2: IOtime += 1; remainingIOtime -= 1; break;
-
-			default: break;
-		}
-		return; 
-
 	}
 
 	//Getters for eventual printing
@@ -78,10 +71,6 @@ public class process {
 		return M;
 	}
 
-	public int getState() {
-		return state;
-	}
-
 	public void setRemainingCPU(int burst) {
 		remainingCPU = burst;
 	}
@@ -102,9 +91,22 @@ public class process {
 		return timeRun;
 	}
 
+	public int getPID() {
+		return PID;
+	}
+
 	public String toString() {
 		String toReturn = "(" + A + " , " + B + " , " + C + " , " + M + ")";
 
 		return toReturn;
+	}
+
+	public boolean equals(process p) {
+		if (this.PID == p.PID) {
+			return true;
+		}
+
+		return false;
+
 	}
 }
