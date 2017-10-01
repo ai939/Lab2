@@ -100,6 +100,7 @@ public class scheduler {
 		sortList(processListHPRN);
 
 		FCFS(processListFCFS, false);
+		//RR(processListRR);
 
 
 		return;
@@ -167,6 +168,7 @@ public class scheduler {
 
 	//Go blocked, running, not started, ready in that order
 	public static void FCFS(ArrayList<process> processList, boolean verbose) {
+
 		int completed = 0;
 		int cycle = 0;
 		int CPUburst = 0, IOburst;
@@ -184,16 +186,6 @@ public class scheduler {
 		//The process list is sorted based on arrival time, so first process in that list is running
 		running = processList.get(0);
 
-		try {
-			CPUburst = RandomOS(running.getB(), randFile);
-			running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
-		}
-
-		catch (FileNotFoundException e) {
-			System.out.println("Random number generator not found");
-			System.exit(0);
-		}
-
 		//Everything else is waiting
 		for (int i = 1; i < processList.size(); i++) {
 			if (processList.get(i).getA() == 0) {
@@ -204,7 +196,17 @@ public class scheduler {
 				notStarted.add(processList.get(i));
 		}
 
-		//Loop will start here
+		if (running != null) { //Getting our necessary time
+			try {
+				CPUburst = RandomOS(running.getB(), randFile); 
+				running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
+			}
+
+			catch (FileNotFoundException e) {
+				System.out.println("Random number generator not found");
+				System.exit(0);
+			}
+		}
 
 		//Printing for verbose mode. Gonna need to add how much time it has left
 		while (finished.size() < processList.size()) {
@@ -225,17 +227,7 @@ public class scheduler {
 				}
 			}
 
-			if (running != null) { //Getting our necessary time
-				try {
-					CPUburst = RandomOS(running.getB(), randFile);
-					running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
-				}
 
-				catch (FileNotFoundException e) {
-					System.out.println("Random number generator not found");
-					System.exit(0);
-				}
-			}
 
 			//Blocked process
 			for (int i = 0; i < blocked.size(); i ++) {
@@ -251,6 +243,15 @@ public class scheduler {
 			for (int i = 0; i < notStarted.size(); i++) {
 				if (cycle == notStarted.get(i).getA()) {
 					ready.addLast(notStarted.get(i));
+				}
+
+				else {
+					notStarted.get(i).increment(3);
+				}
+			}
+
+			for (int i = 0; i < notStarted.size(); i++) {
+				if (ready.contains(notStarted.get(i))) {
 					notStarted.remove(i);
 				}
 			}
@@ -273,6 +274,16 @@ public class scheduler {
 
 				if (!ready.isEmpty()) {
 					running = ready.pop();
+					try {
+						CPUburst = RandomOS(running.getB(), randFile); 
+						running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
+					}
+
+					catch (FileNotFoundException e) {
+						System.out.println("Random number generator not found");
+						System.exit(0);
+					}
+			
 				}
 
 				else {
@@ -291,6 +302,15 @@ public class scheduler {
 
 			if (running == null && !ready.isEmpty()) {
 				running = ready.pop(); //If there's one process left, bring that bitch back
+				try {
+					CPUburst = RandomOS(running.getB(), randFile); 
+					running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
+				}
+
+				catch (FileNotFoundException e) {
+					System.out.println("Random number generator not found");
+					System.exit(0);
+				}
 			}
 
 			cycle++;
