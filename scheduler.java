@@ -21,7 +21,7 @@ new class. I think we save this for last
 //A is arrival, B is interval for CPU burst time, C is time needed, M is used for IO time
 
 public class scheduler {
-	final static String randFile = "random-numbers.txt";
+	final static File randNums = new File("random-numbers.txt");
 
 	public static void main(String[]  args) {
 
@@ -99,7 +99,12 @@ public class scheduler {
 		sortList(processListSJF);
 		sortList(processListHPRN);
 
-		FCFS(processListFCFS, false);
+		try {
+
+			FCFS(processListFCFS, false);
+		}
+
+		catch (Exception e) {}
 		//RR(processListRR);
 
 
@@ -149,8 +154,11 @@ public class scheduler {
 		sortList(processListSJF);
 		sortList(processListHPRN);
 
-		FCFS(processListFCFS, true);
+		try {
+			FCFS(processListFCFS, true);
+		}
 
+		catch (Exception e) {}
 		return;
 	}
 
@@ -163,18 +171,13 @@ public class scheduler {
 	//Also need to figure out how I'm gonna do ties. I think the way I have things sorted is that the 
 	//processes have proper priority
 
-	//Need to add something about current time, so processes that haven't arrived yet don't get started (could set state to 3, that way increment doesn't do anything)
-	//(WOuld just need to add a few more conditional statements)
-
 	//Go blocked, running, not started, ready in that order
-	public static void FCFS(ArrayList<process> processList, boolean verbose) {
+	public static void FCFS(ArrayList<process> processList, boolean verbose) throws Exception {
+		Scanner randFile = new Scanner(randNums);
 
 		int completed = 0;
 		int cycle = 0;
 		int CPUburst = 0, IOburst;
-
-		int forVerbose = 0;
-
 		process running;
 
 		LinkedList<process> ready = new LinkedList<process>();
@@ -211,19 +214,31 @@ public class scheduler {
 		//Printing for verbose mode. Gonna need to add how much time it has left
 		while (finished.size() < processList.size()) {
 			if (verbose) { //Need to organzie this a bit better, get it to print based on PID
-				System.out.printf("Before cycle %d:\n", cycle);
-				if (running != null) {
-					System.out.printf("Process %d is running\n", running.getPID());
-				}
-				for (int i = 0; i < ready.size(); i++) {
-					System.out.printf("Process %d is ready\n", ready.get(i).getPID());
-				}
-				for (int i = 0; i < blocked.size(); i++) {
-					System.out.printf("Process %d is blocked\n", blocked.get(i).getPID());
-				}
+				System.out.printf("\nBefore cycle %d:\n", cycle);
+				for (int i = 0; i < processList.size(); i ++) {
+					if (running != null && running.getPID() == i) {
+						System.out.printf("Process %d is running (%d)  ", running.getPID(), running.getRemainingCPU());
+					}
 
-				for (int i = 0; i < notStarted.size(); i++) {
-					System.out.printf("Process %d has not started\n", notStarted.get(i).getPID());
+					for (int j = 0; j < ready.size(); j++) {
+						if (ready.get(j).getPID() == i) {
+							System.out.printf("Process %d is ready   ", ready.get(j).getPID());
+						}
+					}
+
+
+					for (int j = 0; j < blocked.size(); j++) {
+						if (blocked.get(j).getPID() == i) {
+							System.out.printf("Process %d is blocked (%d)   ", blocked.get(j).getPID(), blocked.get(j).getRemainingIO());
+						}
+					}
+
+
+					for (int j = 0; j < notStarted.size(); j++) {
+						if (notStarted.get(j).getPID() == i) {
+							System.out.printf("Process %d has not started   ", notStarted.get(j).getPID());
+						}
+					}
 				}
 			}
 
@@ -267,7 +282,7 @@ public class scheduler {
 			}
 
 			//Check if things need to be swapped out
-			if (running != null && running.getRemainingCPU() == 0) {
+			if (running != null && running.getRemainingCPU() <= 0) {
 				IOburst = CPUburst * running.getM();
 				running.setRemainingIO(IOburst);
 				blocked.add(running);
@@ -276,6 +291,9 @@ public class scheduler {
 					running = ready.pop();
 					try {
 						CPUburst = RandomOS(running.getB(), randFile); 
+						if (CPUburst > running.getC() - running.getTimeRun()) {
+							CPUburst = running.getC() - running.getTimeRun();
+						}
 						running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
 					}
 
@@ -294,7 +312,7 @@ public class scheduler {
 
 
 			for (int i  = 0; i < blocked.size(); i++) {
-				if (blocked.get(i).getRemainingIO() == 0) {
+				if (blocked.get(i).getRemainingIO() <= 0) {
 					ready.addLast(blocked.get(i));
 					blocked.remove(i);
 				}
@@ -316,11 +334,6 @@ public class scheduler {
 			cycle++;
 
 		}
-
-
-	
-
-
 
 		//Printing stuff
 		System.out.println("Scheduling algorithm: FCFS");		
@@ -365,27 +378,34 @@ public class scheduler {
 
 	//Gotta get that uniformly distributed RV, sahn!
 	//Maybe wanna change exception type, but I think I can hardcode file name in
-	public static int RandomOS(int U, String fileName) throws FileNotFoundException {
-		File file = new File(fileName);
+	//This might need some editing. I don't know if how I have the RV reader working
+	public static int RandomOS(int U, Scanner getRV) throws FileNotFoundException {
+		//File file = new File(fileName);
 
-		if(!file.canRead()) {
-			throw new FileNotFoundException();
-		}
-		Scanner getRV = new Scanner(file);
+		// if(!Scanner.canRead()) {
+		// 	throw new FileNotFoundException();
+		// }
+		// Scanner getRV = new Scanner(file);
 
 		int bigNum = getRV.nextInt();
+		//System.out.println(bigNum);
 		return 1 + (bigNum % U);
 	}
 
 	//Need to add in final summary here
 	public static void printSummary(ArrayList<process> processList) {
+
 		for (int i = 0; i < processList.size(); i++) {
-			System.out.printf("Process %d: \n", i);
-			System.out.printf("(A, B, C, M): %s\n", processList.get(i).toString());
-			System.out.printf("Finishing Time: %d\n", processList.get(i).getFinish());
-			System.out.printf("Turnaround time: %d\n", processList.get(i).getTurnaround());
-			System.out.printf("IO Time: %d\n", processList.get(i).getIOtime());
-			System.out.printf("Waiting: %d\n\n", processList.get(i).getWaiting());
+			for (int j = 0; j < processList.size(); j++) {
+				if (processList.get(j).getPID() == i) {
+					System.out.printf("Process %d: \n", processList.get(j).getPID());
+					System.out.printf("(A, B, C, M): %s\n", processList.get(j).toString());
+					System.out.printf("Finishing Time: %d\n", processList.get(j).getFinish());
+					System.out.printf("Turnaround time: %d\n", processList.get(j).getTurnaround());
+					System.out.printf("IO Time: %d\n", processList.get(j).getIOtime());
+					System.out.printf("Waiting: %d\n\n", processList.get(j).getWaiting());
+				}
+			}
 		}
 	}
 }
