@@ -99,7 +99,7 @@ public class scheduler {
 		sortList(processListSJF);
 		sortList(processListHPRN);
 
-		FCFS(processListFCFS);
+		FCFS(processListFCFS, false);
 
 
 		return;
@@ -111,6 +111,44 @@ public class scheduler {
 		if (!file.canRead()) {
 			throw new FileNotFoundException();
 		}
+
+				Scanner in = new Scanner(file);
+
+		int numProcesses = in.nextInt();
+
+		ArrayList<process> processListFCFS = new ArrayList<process>();
+		ArrayList<process> processListRR = new ArrayList<process>();
+		ArrayList<process> processListSJF = new ArrayList<process>();
+		ArrayList<process> processListHPRN = new ArrayList<process>();
+
+		int A;
+		int B;
+		int C;
+		int M;
+
+		//Get all the processes
+		for (int i = 0; i < numProcesses; i++) {
+			A = in.nextInt();
+			B = in.nextInt();
+			C = in.nextInt();
+			M = in.nextInt();
+
+			process toAdd1 = new process(A, B, C, M, i);
+			process toAdd2 = new process(A, B, C, M, i);
+			process toAdd3 = new process(A, B, C, M, i);
+			process toAdd4 = new process(A, B, C, M, i);
+			processListFCFS.add(toAdd1);
+			processListRR.add(toAdd2);
+			processListSJF.add(toAdd3);
+			processListHPRN.add(toAdd4);
+		}
+
+		sortList(processListFCFS);
+		sortList(processListRR);
+		sortList(processListSJF);
+		sortList(processListHPRN);
+
+		FCFS(processListFCFS, true);
 
 		return;
 	}
@@ -126,13 +164,19 @@ public class scheduler {
 
 	//Need to add something about current time, so processes that haven't arrived yet don't get started (could set state to 3, that way increment doesn't do anything)
 	//(WOuld just need to add a few more conditional statements)
-	public static void FCFS(ArrayList<process> processList) {
+
+	//Go blocked, running, not started, ready in that order
+	public static void FCFS(ArrayList<process> processList, boolean verbose) {
 		int completed = 0;
 		int cycle = 0;
 		int CPUburst = 0, IOburst;
 
+		int forVerbose = 0;
+
 		process running;
+
 		LinkedList<process> ready = new LinkedList<process>();
+
 		ArrayList<process> blocked = new ArrayList<process>();
 		ArrayList<process> notStarted = new ArrayList<process>(); //Process that hasn't started
 		ArrayList<process> finished = new ArrayList<process>(processList.size());
@@ -160,50 +204,100 @@ public class scheduler {
 				notStarted.add(processList.get(i));
 		}
 
-		//While there;s still processes to run
-		while (completed < processList.size()) {
-			//Blocked processes
-			for (int i = 0; i < blocked.size(); i++) {
-				if (blocked.get(i).getRemainingIO() == 0) { 
-					ready.addLast(blocked.get(i));
-					blocked.remove(i);
+		//Loop will start here
+
+		//Printing for verbose mode. Gonna need to add how much time it has left
+		while (finished.size() < processList.size()) {
+			if (verbose) { //Need to organzie this a bit better, get it to print based on PID
+				System.out.printf("Before cycle %d:\n", cycle);
+				if (running != null) {
+					System.out.printf("Process %d is running\n", running.getPID());
 				}
-				if (!blocked.isEmpty()) {
-					blocked.get(i).increment(2);
-	
-				}			
-			}
+				for (int i = 0; i < ready.size(); i++) {
+					System.out.printf("Process %d is ready\n", ready.get(i).getPID());
+				}
+				for (int i = 0; i < blocked.size(); i++) {
+					System.out.printf("Process %d is blocked\n", blocked.get(i).getPID());
+				}
 
-			if (running.getTimeRun() == running.getC()) {
-				finished.add(running.getPID(), running);
-				completed++;
-			}
-			//Running process
-			running.increment(0);
-
-			if (running.getRemainingCPU() == 0) {
-				blocked.add(running);
-				if (!ready.isEmpty()) {
-					running = ready.pop();
+				for (int i = 0; i < notStarted.size(); i++) {
+					System.out.printf("Process %d has not started\n", notStarted.get(i).getPID());
 				}
 			}
 
+			if (running != null) { //Getting our necessary time
+				try {
+					CPUburst = RandomOS(running.getB(), randFile);
+					running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
+				}
+
+				catch (FileNotFoundException e) {
+					System.out.println("Random number generator not found");
+					System.exit(0);
+				}
+			}
+
+			//Blocked process
+			for (int i = 0; i < blocked.size(); i ++) {
+				blocked.get(i).increment(2);
+			}
+
+			//running process
+			if (running != null) {
+				running.increment(0);
+			}
 
 			//Waiting process
 			for (int i = 0; i < notStarted.size(); i++) {
-				if (notStarted.get(i).getA() == cycle) {
+				if (cycle == notStarted.get(i).getA()) {
 					ready.addLast(notStarted.get(i));
+					notStarted.remove(i);
 				}
 			}
 
 			//Ready process
-			for (int i = 0; i < ready.size(); i++) {
+			for (int i  = 0; i < ready.size(); i++) {
 				ready.get(i).increment(1);
 			}
 
+			if (running != null && running.getTimeRun() == running.getC()) {
+				finished.add(running);
+				running = null;
+			}
+
+			//Check if things need to be swapped out
+			if (running != null && running.getRemainingCPU() == 0) {
+				IOburst = CPUburst * running.getM();
+				running.setRemainingIO(IOburst);
+				blocked.add(running);
+
+				if (!ready.isEmpty()) {
+					running = ready.pop();
+				}
+
+				else {
+					running = null; //Can eventually use this as a check for if there's one process left
+				}
+			}
+
+
+
+			for (int i  = 0; i < blocked.size(); i++) {
+				if (blocked.get(i).getRemainingIO() == 0) {
+					ready.addLast(blocked.get(i));
+					blocked.remove(i);
+				}
+			}
+
+			if (running == null && !ready.isEmpty()) {
+				running = ready.pop(); //If there's one process left, bring that bitch back
+			}
 
 			cycle++;
+
 		}
+
+
 	
 
 
