@@ -1,6 +1,6 @@
-import java.util.*; //Might not need this 
+import java.util.*; 
 
-public class process {
+public class process implements Comparable<process> {
 	private int PID;
 
 	private int A, B, C, M;
@@ -95,6 +95,16 @@ public class process {
 		return PID;
 	}
 
+	public void setPID(int PID) {
+		this.PID = PID;
+	}
+
+
+	//For HRPN
+	public int getPenaltyRation() {
+		return finish / Math.max(1, timeRun);
+	}
+
 	public String toString() {
 		String toReturn = "(" + A + " , " + B + " , " + C + " , " + M + ")";
 
@@ -108,5 +118,17 @@ public class process {
 
 		return false;
 
+	}
+
+	public int compareTo(process o) {
+		if (this.A > o.A) {
+			return 1;
+		}
+
+		else if (this.A < o.A) {
+			return -1;
+		}
+
+		return 0;
 	}
 }

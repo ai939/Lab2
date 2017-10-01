@@ -35,7 +35,7 @@ public class scheduler {
 				scheduleVerbose(args[1]);
 			}
 
-			catch (FileNotFoundException e) { //Need to check these to make sure it will actually catch things
+			catch (FileNotFoundException e) { 
 				System.out.println("File not found");
 			}
 		}
@@ -149,10 +149,17 @@ public class scheduler {
 			processListHPRN.add(toAdd4);
 		}
 
+
+
 		sortList(processListFCFS);
 		sortList(processListRR);
 		sortList(processListSJF);
 		sortList(processListHPRN);
+
+
+		for (int i = 0; i < processListFCFS.size(); i++) {
+			System.out.println(processListFCFS.get(i).toString());
+		}
 
 		try {
 			FCFS(processListFCFS, true);
@@ -161,11 +168,6 @@ public class scheduler {
 		catch (Exception e) {}
 		return;
 	}
-
-
-	//I think for all of the below, I pass in the processes.
-	//The question is if I have a seperate method for printing.
-
 	//First Come First Serve
 	//Things do switch when blocked
 	//Also need to figure out how I'm gonna do ties. I think the way I have things sorted is that the 
@@ -213,7 +215,7 @@ public class scheduler {
 
 		//Printing for verbose mode. Gonna need to add how much time it has left
 		while (finished.size() < processList.size()) {
-			if (verbose) { //Need to organzie this a bit better, get it to print based on PID
+			if (verbose) { 
 				System.out.printf("\nBefore cycle %d:\n", cycle);
 				for (int i = 0; i < processList.size(); i ++) {
 					if (running != null && running.getPID() == i) {
@@ -345,21 +347,25 @@ public class scheduler {
 	
 
 	//Round Robin (q = 2)
-	public static void RR(ArrayList<process> processList) {
+	//Same general idea as above, just have an additional check if something's been running for two to cause a swap
+	public static void RR(ArrayList<process> processList, boolean verbose) {
 		printSummary(processList);
 		return;
 	}
 
 	//Shortest Job First
-	public static void SJF(ArrayList<process> processList) {
+	//After every cycle, run through the ready list for the shortest one.
+	//Maybe use an array list instead of linked list for this one
+	public static void SJF(ArrayList<process> processList, boolean verbose) {
 		return;
 	}
 
 	//Highest Penalty Run Next (?)
-	public static void HPRN (ArrayList<process> processList) {
+	public static void HPRN (ArrayList<process> processList, boolean verbose) {
 		return;
 	}
 
+	//Maybe have this return an actual list, and pass that in instead.
 	public static void sortList(ArrayList<process> processList) {
 		//Sort the list based on arrival time for later for later
 		for (int i = 0; i < processList.size(); i++) {
