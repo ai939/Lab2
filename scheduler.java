@@ -369,7 +369,8 @@ public class scheduler {
 	//Round Robin (q = 2)
 	//Same general idea as above, just have an additional check if something's been running for two to cause a swap
 
-	//Ties aren't being broken properly
+	//Ties aren't being broken properly (have an additional check against PID)
+	//pop it and make it running, but then peek the next one to see if we need to tie break
 	public static void RR(ArrayList<process> processList, boolean verbose) throws Exception {
 		Scanner randFile = new Scanner(randNums);
 
@@ -565,8 +566,15 @@ public class scheduler {
 
 	//Shortest Job First
 	//After every cycle, run through the ready list for the shortest one.
-	//Maybe use an array list instead of linked list for this one
-	public static void SJF(ArrayList<process> processList, boolean verbose) {
+	//Interesting things are happening with run times in this one. Some of them will go negative.
+	//Probably has to do with when things get switched due to something else being shorter
+	//Check conditionals v. when the times are actually ran (I think things go to 0 and get put back
+	//onto the running thing in the first part of the while loop. Maybe have an additional check for
+	//it having a non-zero CPU time)
+	//Also, 4 and 5 still don't work
+	public static void SJF(ArrayList<process> processList, boolean verbose) throws Exception {
+		Scanner randFile = new Scanner(randNums);
+		int origSize = processList.size();
 
 		int completed = 0;
 		int cycle = 0;
@@ -577,15 +585,23 @@ public class scheduler {
 
 		ArrayList<process> blocked = new ArrayList<process>();
 		ArrayList<process> notStarted = new ArrayList<process>(); //Process that hasn't started
-		ArrayList<process> finished = new ArrayList<process>(processList.size());
+		ArrayList<process> finished = new ArrayList<process>();
 
-		
-		running = processList.get(0);
+		//Finding our shortest guy to start with
+		int minIndex = 0;
+		for (int i = 0; i < processList.size(); i++) {
+			if (processList.get(i).getC() < processList.get(minIndex).getC() && processList.get(i).getA() <= 0) { //In general, it's gonna be getC - timeRun
+				minIndex = i;
+			}
+		}
+
+		running = processList.get(minIndex);
+		processList.remove(minIndex);
 
 		//Everything else is waiting
-		for (int i = 1; i < processList.size(); i++) {
+		for (int i = 0; i < processList.size(); i++) { //Since we removed the first one running, we start back at zero and go up to the new size
 			if (processList.get(i).getA() == 0) {
-				ready.addLast(processList.get(i)); //Put them in the back
+				ready.add(processList.get(i)); //Put them in the back
 			}
 
 			else
@@ -605,10 +621,28 @@ public class scheduler {
 		}
 
 		//Printing for verbose mode. Gonna need to add how much time it has left
-		while (finished.size() < processList.size()) {
+		while (finished.size() < origSize ) {
+			//Maybe check for new shortest here?
+
+			minIndex = -1;
+			int shortest = 1000000; //Big sentinel
+			for (int i = 0; i < ready.size(); i++) {
+				if (ready.get(i).getC() - ready.get(i).getTimeRun() < running.getC() - running.getTimeRun()) { //Bug is where I get you
+					minIndex = i;
+					shortest = ready.get(i).getC() - ready.get(i).getTimeRun();
+				}
+			}
+
+			//Check for non-zero CPU time around here
+			if (minIndex >= 0 && !ready.isEmpty()) {
+				ready.add(running);
+				running = ready.get(minIndex);
+				ready.remove(minIndex);
+			}
+
 			if (verbose) { 
 				System.out.printf("\nBefore cycle %d:\n", cycle);
-				for (int i = 0; i < processList.size(); i ++) {
+				for (int i = 0; i < origSize; i ++) {
 					if (running != null && running.getPID() == i) {
 						System.out.printf("Process %d is running (%d)  ", running.getPID(), running.getRemainingCPU());
 					}
@@ -650,7 +684,7 @@ public class scheduler {
 			//Waiting process
 			for (int i = 0; i < notStarted.size(); i++) {
 				if (cycle == notStarted.get(i).getA()) {
-					ready.addLast(notStarted.get(i));
+					ready.add(notStarted.get(i));
 				}
 
 				else {
@@ -674,6 +708,20 @@ public class scheduler {
 				running = null;
 			}
 
+			//Check for a new shortest yob
+			//Keep track of currently shortest ready job
+			//Swap if needed
+
+			minIndex = 0;
+			shortest = 1000000;
+			for (int i = 0; i < ready.size(); i++) {
+				if (ready.get(i).getC() - ready.get(i).getTimeRun() < shortest) { //Bug is where I get you
+					minIndex = i;
+					shortest = ready.get(i).getC() - ready.get(i).getTimeRun();
+				}
+			}
+
+
 			//Check if things need to be swapped out
 			if (running != null && running.getRemainingCPU() <= 0) {
 				IOburst = CPUburst * running.getM();
@@ -681,7 +729,8 @@ public class scheduler {
 				blocked.add(running);
 
 				if (!ready.isEmpty()) {
-					running = ready.pop();
+					running = ready.get(minIndex); //Had to change from .pop() since it's no longer a linked list. I might be where a bug is
+					ready.remove(minIndex);
 					try {
 						CPUburst = RandomOS(running.getB(), randFile); 
 						if (CPUburst > running.getC() - running.getTimeRun()) {
@@ -703,16 +752,25 @@ public class scheduler {
 			}
 
 
+			//New shortest job requires a switch
+			if (running != null && !ready.isEmpty() && !ready.get(minIndex).equals(running)) {
+				ready.add(running);
+				running = ready.get(minIndex);
+				ready.remove(minIndex);
+			}
+
+
 
 			for (int i  = 0; i < blocked.size(); i++) {
 				if (blocked.get(i).getRemainingIO() <= 0) {
-					ready.addLast(blocked.get(i));
+					ready.add(blocked.get(i));
 					blocked.remove(i);
 				}
 			}
 
 			if (running == null && !ready.isEmpty()) {
-				running = ready.pop(); //If there's one process left, bring that bitch back
+				running = ready.get(0); //If there's one process left, bring that bitch back
+				ready.remove(0);
 				try {
 					CPUburst = RandomOS(running.getB(), randFile); 
 					running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
@@ -729,14 +787,15 @@ public class scheduler {
 		}
 
 		//Printing stuff
-		System.out.println("Scheduling algorithm: SJF");		
+		System.out.println("\nScheduling algorithm: SJF");		
 		printSummary(finished);
 
 		randFile.close();
 		return;
 	}
 
-	//Highest Penalty Run Next (?)
+	//Highest Penalty Ratio Next (?)
+	//Can really do the same thing as SJF, but replace checking job length with checking penalty ratio
 	public static void HPRN (ArrayList<process> processList, boolean verbose) {
 		return;
 	}

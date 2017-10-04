@@ -109,7 +109,7 @@ public class process implements Comparable<process> {
 
 
 	//For HRPN
-	public int getPenaltyRation() {
+	public int getPenaltyRatio() {
 		return finish / Math.max(1, timeRun);
 	}
 
