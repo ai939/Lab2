@@ -14,6 +14,14 @@ public class process implements Comparable<process> {
 
 
 	//Constructor. There's no need for a default. 
+	public process(int A, int B, int C, int M) {
+		//Maybe try being lazy and set the PID in the sorting loop
+		this.A = A;
+		this.B = B;
+		this.C = C;
+		this.M = M;
+	}
+
 	public process(int A, int B, int C, int M, int PID) {
 		this.PID = PID;
 

@@ -84,10 +84,10 @@ public class scheduler {
 			C = in.nextInt();
 			M = in.nextInt();
 
-			process toAdd1 = new process(A, B, C, M, i);
-			process toAdd2 = new process(A, B, C, M, i);
-			process toAdd3 = new process(A, B, C, M, i);
-			process toAdd4 = new process(A, B, C, M, i);
+			process toAdd1 = new process(A, B, C, M);
+			process toAdd2 = new process(A, B, C, M);
+			process toAdd3 = new process(A, B, C, M);
+			process toAdd4 = new process(A, B, C, M);
 			processListFCFS.add(toAdd1);
 			processListRR.add(toAdd2);
 			processListSJF.add(toAdd3);
@@ -101,11 +101,15 @@ public class scheduler {
 
 		try {
 
-			FCFS(processListFCFS, false);
+			//FCFS(processListFCFS, false);
+			//RR(processListRR, false);
+			SJF(processListSJF, false);
 		}
 
-		catch (Exception e) {}
-		//RR(processListRR);
+		catch (Exception e) {
+			System.out.println("Error:");
+			System.out.println(e.getMessage());
+		}
 
 
 		return;
@@ -162,10 +166,15 @@ public class scheduler {
 		}
 
 		try {
-			FCFS(processListFCFS, true);
+			//FCFS(processListFCFS, true);
+			//RR(processListRR, true);
+			SJF(processListSJF, true);
 		}
 
-		catch (Exception e) {}
+		catch (Exception e) {
+			System.out.println("Error:");
+			System.out.println(e.getMessage());
+		}
 		return;
 	}
 	//First Come First Serve
@@ -173,8 +182,17 @@ public class scheduler {
 	//Also need to figure out how I'm gonna do ties. I think the way I have things sorted is that the 
 	//processes have proper priority
 
-	//Go blocked, running, not started, ready in that order
+	//Input 4 and 5 need fixing (problem from 4 might be coming from not changing null running to running properly)
+
+
+	/* Idea to consider:
+	beginning of the while loop: if (ready == null && !ready.isEmpty())
+	ready = ready.pop()
+	Or something. I think this is why things aren't adding up properly for the longer runs.
+	*/
+
 	public static void FCFS(ArrayList<process> processList, boolean verbose) throws Exception {
+
 		Scanner randFile = new Scanner(randNums);
 
 		int completed = 0;
@@ -340,6 +358,8 @@ public class scheduler {
 		//Printing stuff
 		System.out.println("Scheduling algorithm: FCFS");		
 		printSummary(finished);
+
+		randFile.close();
 		
 
 		return;
@@ -348,8 +368,198 @@ public class scheduler {
 
 	//Round Robin (q = 2)
 	//Same general idea as above, just have an additional check if something's been running for two to cause a swap
-	public static void RR(ArrayList<process> processList, boolean verbose) {
+
+	//Ties aren't being broken properly
+	public static void RR(ArrayList<process> processList, boolean verbose) throws Exception {
+		Scanner randFile = new Scanner(randNums);
+
+		int completed = 0;
+		int cycle = 0;
+		int quant = 0; //Use this as an additional check for if we need to make the switcheroo
+		int CPUburst = 0, IOburst;
+		process running;
+
+		LinkedList<process> ready = new LinkedList<process>();
+
+		ArrayList<process> blocked = new ArrayList<process>();
+		ArrayList<process> notStarted = new ArrayList<process>(); //Process that hasn't started
+		ArrayList<process> finished = new ArrayList<process>(processList.size());
+
+		//The process list is sorted based on arrival time, so first process in that list is running
+		running = processList.get(0);
+
+		//Everything else is waiting
+		for (int i = 1; i < processList.size(); i++) {
+			if (processList.get(i).getA() == 0) {
+				ready.addLast(processList.get(i)); //Put them in the back
+			}
+
+			else
+				notStarted.add(processList.get(i));
+		}
+
+		if (running != null) { //Getting our necessary time
+			try {
+				CPUburst = RandomOS(running.getB(), randFile); 
+				running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
+			}
+
+			catch (FileNotFoundException e) {
+				System.out.println("Random number generator not found");
+				System.exit(0);
+			}
+		}
+
+		//Printing for verbose mode. Gonna need to add how much time it has left
+		while (finished.size() < processList.size()) {
+			if (verbose) { 
+				System.out.printf("\nBefore cycle %d:\n", cycle);
+				for (int i = 0; i < processList.size(); i ++) {
+					if (running != null && running.getPID() == i) {
+						System.out.printf("Process %d is running (%d)  ", running.getPID(), running.getRemainingCPU());
+					}
+
+					for (int j = 0; j < ready.size(); j++) {
+						if (ready.get(j).getPID() == i) {
+							System.out.printf("Process %d is ready   ", ready.get(j).getPID());
+						}
+					}
+
+
+					for (int j = 0; j < blocked.size(); j++) {
+						if (blocked.get(j).getPID() == i) {
+							System.out.printf("Process %d is blocked (%d)   ", blocked.get(j).getPID(), blocked.get(j).getRemainingIO());
+						}
+					}
+
+
+					for (int j = 0; j < notStarted.size(); j++) {
+						if (notStarted.get(j).getPID() == i) {
+							System.out.printf("Process %d has not started   ", notStarted.get(j).getPID());
+						}
+					}
+				}
+			}
+
+
+
+			//Blocked process
+			for (int i = 0; i < blocked.size(); i ++) {
+				blocked.get(i).increment(2);
+			}
+
+			//running process
+			if (running != null) {
+				running.increment(0);
+				quant++;
+			}
+
+			//Waiting process
+			for (int i = 0; i < notStarted.size(); i++) {
+				if (cycle == notStarted.get(i).getA()) {
+					ready.addLast(notStarted.get(i));
+				}
+
+				else {
+					notStarted.get(i).increment(3);
+				}
+			}
+
+			for (int i = 0; i < notStarted.size(); i++) {
+				if (ready.contains(notStarted.get(i))) {
+					notStarted.remove(i);
+				}
+			}
+
+			//Ready process
+			for (int i  = 0; i < ready.size(); i++) {
+				ready.get(i).increment(1);
+			}
+
+			if (running != null && running.getTimeRun() == running.getC()) {
+				finished.add(running);
+				running = null;
+			}
+
+			//Check if things need to be swapped out
+			if (running != null && running.getRemainingCPU() <= 0) {
+				IOburst = CPUburst * running.getM();
+				running.setRemainingIO(IOburst);
+				blocked.add(running);
+
+				if (!ready.isEmpty()) {
+					running = ready.pop();
+					try {
+						CPUburst = RandomOS(running.getB(), randFile); 
+						if (CPUburst > running.getC() - running.getTimeRun()) {
+							CPUburst = running.getC() - running.getTimeRun();
+						}
+						running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
+					}
+
+					catch (FileNotFoundException e) {
+						System.out.println("Random number generator not found");
+						System.exit(0);
+					}
+			
+				}
+
+				else {
+					running = null; //Can eventually use this as a check for if there's one process left
+				}
+				quant = 0;
+			}
+
+			else if (running != null && quant >= 2) {
+				if (ready.isEmpty()) {
+					//If no one else is ready, just keep going
+				}
+				else if (!ready.isEmpty()) {
+					ready.addLast(running);
+					running = ready.pop();
+
+					if (running.getRemainingCPU() <= 0) { //If the new process hasn't actually started yet
+						try {
+							CPUburst = RandomOS(running.getB(), randFile);
+							running.setRemainingCPU(CPUburst);
+						}
+
+						catch(FileNotFoundException e) {} //Laziness
+					}
+				}
+				quant = 0;
+			}
+
+
+
+			for (int i  = 0; i < blocked.size(); i++) {
+				if (blocked.get(i).getRemainingIO() <= 0) {
+					ready.addLast(blocked.get(i));
+					blocked.remove(i);
+				}
+			}
+
+			if (running == null && !ready.isEmpty()) {
+				running = ready.pop(); //If there's one process left, bring that bitch back
+				try {
+					CPUburst = RandomOS(running.getB(), randFile); 
+					running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
+				}
+
+				catch (FileNotFoundException e) {
+					System.out.println("Random number generator not found");
+					System.exit(0);
+				}
+			}
+
+			cycle++;
+
+		}
+
+		System.out.println("\nScheduling Algorithm: RR");
 		printSummary(processList);
+
+		randFile.close();
 		return;
 	}
 
@@ -357,6 +567,172 @@ public class scheduler {
 	//After every cycle, run through the ready list for the shortest one.
 	//Maybe use an array list instead of linked list for this one
 	public static void SJF(ArrayList<process> processList, boolean verbose) {
+
+		int completed = 0;
+		int cycle = 0;
+		int CPUburst = 0, IOburst;
+		process running;
+
+		ArrayList<process> ready = new ArrayList<process>();
+
+		ArrayList<process> blocked = new ArrayList<process>();
+		ArrayList<process> notStarted = new ArrayList<process>(); //Process that hasn't started
+		ArrayList<process> finished = new ArrayList<process>(processList.size());
+
+		
+		running = processList.get(0);
+
+		//Everything else is waiting
+		for (int i = 1; i < processList.size(); i++) {
+			if (processList.get(i).getA() == 0) {
+				ready.addLast(processList.get(i)); //Put them in the back
+			}
+
+			else
+				notStarted.add(processList.get(i));
+		}
+
+		if (running != null) { //Getting our necessary time
+			try {
+				CPUburst = RandomOS(running.getB(), randFile); 
+				running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
+			}
+
+			catch (FileNotFoundException e) {
+				System.out.println("Random number generator not found");
+				System.exit(0);
+			}
+		}
+
+		//Printing for verbose mode. Gonna need to add how much time it has left
+		while (finished.size() < processList.size()) {
+			if (verbose) { 
+				System.out.printf("\nBefore cycle %d:\n", cycle);
+				for (int i = 0; i < processList.size(); i ++) {
+					if (running != null && running.getPID() == i) {
+						System.out.printf("Process %d is running (%d)  ", running.getPID(), running.getRemainingCPU());
+					}
+
+					for (int j = 0; j < ready.size(); j++) {
+						if (ready.get(j).getPID() == i) {
+							System.out.printf("Process %d is ready   ", ready.get(j).getPID());
+						}
+					}
+
+
+					for (int j = 0; j < blocked.size(); j++) {
+						if (blocked.get(j).getPID() == i) {
+							System.out.printf("Process %d is blocked (%d)   ", blocked.get(j).getPID(), blocked.get(j).getRemainingIO());
+						}
+					}
+
+
+					for (int j = 0; j < notStarted.size(); j++) {
+						if (notStarted.get(j).getPID() == i) {
+							System.out.printf("Process %d has not started   ", notStarted.get(j).getPID());
+						}
+					}
+				}
+			}
+
+
+
+			//Blocked process
+			for (int i = 0; i < blocked.size(); i ++) {
+				blocked.get(i).increment(2);
+			}
+
+			//running process
+			if (running != null) {
+				running.increment(0);
+			}
+
+			//Waiting process
+			for (int i = 0; i < notStarted.size(); i++) {
+				if (cycle == notStarted.get(i).getA()) {
+					ready.addLast(notStarted.get(i));
+				}
+
+				else {
+					notStarted.get(i).increment(3);
+				}
+			}
+
+			for (int i = 0; i < notStarted.size(); i++) {
+				if (ready.contains(notStarted.get(i))) {
+					notStarted.remove(i);
+				}
+			}
+
+			//Ready process
+			for (int i  = 0; i < ready.size(); i++) {
+				ready.get(i).increment(1);
+			}
+
+			if (running != null && running.getTimeRun() == running.getC()) {
+				finished.add(running);
+				running = null;
+			}
+
+			//Check if things need to be swapped out
+			if (running != null && running.getRemainingCPU() <= 0) {
+				IOburst = CPUburst * running.getM();
+				running.setRemainingIO(IOburst);
+				blocked.add(running);
+
+				if (!ready.isEmpty()) {
+					running = ready.pop();
+					try {
+						CPUburst = RandomOS(running.getB(), randFile); 
+						if (CPUburst > running.getC() - running.getTimeRun()) {
+							CPUburst = running.getC() - running.getTimeRun();
+						}
+						running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
+					}
+
+					catch (FileNotFoundException e) {
+						System.out.println("Random number generator not found");
+						System.exit(0);
+					}
+			
+				}
+
+				else {
+					running = null; //Can eventually use this as a check for if there's one process left
+				}
+			}
+
+
+
+			for (int i  = 0; i < blocked.size(); i++) {
+				if (blocked.get(i).getRemainingIO() <= 0) {
+					ready.addLast(blocked.get(i));
+					blocked.remove(i);
+				}
+			}
+
+			if (running == null && !ready.isEmpty()) {
+				running = ready.pop(); //If there's one process left, bring that bitch back
+				try {
+					CPUburst = RandomOS(running.getB(), randFile); 
+					running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
+				}
+
+				catch (FileNotFoundException e) {
+					System.out.println("Random number generator not found");
+					System.exit(0);
+				}
+			}
+
+			cycle++;
+
+		}
+
+		//Printing stuff
+		System.out.println("Scheduling algorithm: SJF");		
+		printSummary(finished);
+
+		randFile.close();
 		return;
 	}
 
@@ -379,6 +755,10 @@ public class scheduler {
 				processList.set(minIndex, processList.get(i));
 				processList.set(i, temp);
 			}
+		}
+
+		for (int i = 0; i < processList.size(); i++) {
+			processList.get(i).setPID(i);
 		}
 	}
 
