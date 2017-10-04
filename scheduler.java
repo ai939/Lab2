@@ -103,12 +103,13 @@ public class scheduler {
 
 			//FCFS(processListFCFS, false);
 			//RR(processListRR, false);
-			SJF(processListSJF, false);
+			//SJF(processListSJF, false);
+			HPRN(processListHPRN, false);
 		}
 
 		catch (Exception e) {
 			System.out.println("Error:");
-			System.out.println(e.getMessage());
+			e.printStackTrace();
 		}
 
 
@@ -168,12 +169,13 @@ public class scheduler {
 		try {
 			//FCFS(processListFCFS, true);
 			//RR(processListRR, true);
-			SJF(processListSJF, true);
+			//SJF(processListSJF, true);
+			HPRN(processListHPRN, true);
 		}
 
 		catch (Exception e) {
 			System.out.println("Error:");
-			System.out.println(e.getMessage());
+			e.printStackTrace();
 		}
 		return;
 	}
@@ -566,11 +568,6 @@ public class scheduler {
 
 	//Shortest Job First
 	//After every cycle, run through the ready list for the shortest one.
-	//Interesting things are happening with run times in this one. Some of them will go negative.
-	//Probably has to do with when things get switched due to something else being shorter
-	//Check conditionals v. when the times are actually ran (I think things go to 0 and get put back
-	//onto the running thing in the first part of the while loop. Maybe have an additional check for
-	//it having a non-zero CPU time)
 	//Also, 4 and 5 still don't work
 	public static void SJF(ArrayList<process> processList, boolean verbose) throws Exception {
 		Scanner randFile = new Scanner(randNums);
@@ -638,7 +635,21 @@ public class scheduler {
 				ready.add(running);
 				running = ready.get(minIndex);
 				ready.remove(minIndex);
+				if (running.getRemainingCPU() <= 0) {
+					try {
+						CPUburst = RandomOS(running.getB(), randFile);
+						running.setRemainingCPU(CPUburst);
+						if (CPUburst > running.getC() - running.getTimeRun()) {
+							CPUburst = running.getC() - running.getTimeRun();
+						}
+					}
+
+					catch (FileNotFoundException e) {
+						System.out.println("RNG not found");
+					}
+				}
 			}
+
 
 			if (verbose) { 
 				System.out.printf("\nBefore cycle %d:\n", cycle);
@@ -751,9 +762,14 @@ public class scheduler {
 				}
 			}
 
+			if (minIndex > ready.size() - 1) {
+				minIndex = 0;
+			}
+
 
 			//New shortest job requires a switch
 			if (running != null && !ready.isEmpty() && !ready.get(minIndex).equals(running)) {
+
 				ready.add(running);
 				running = ready.get(minIndex);
 				ready.remove(minIndex);
@@ -774,6 +790,9 @@ public class scheduler {
 				try {
 					CPUburst = RandomOS(running.getB(), randFile); 
 					running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
+					if (CPUburst > running.getC() - running.getTimeRun()) {
+						CPUburst = running.getC() - running.getTimeRun();
+					}
 				}
 
 				catch (FileNotFoundException e) {
@@ -796,7 +815,243 @@ public class scheduler {
 
 	//Highest Penalty Ratio Next (?)
 	//Can really do the same thing as SJF, but replace checking job length with checking penalty ratio
-	public static void HPRN (ArrayList<process> processList, boolean verbose) {
+
+	//Not switching properly when things enter the system
+	public static void HPRN (ArrayList<process> processList, boolean verbose) throws Exception {
+		Scanner randFile = new Scanner(randNums);
+		int origSize = processList.size();
+
+		int minIndex = 0; //NB: change these all to max
+
+		int completed = 0;
+		int cycle = 0;
+		int CPUburst = 0, IOburst;
+		process running;
+
+		ArrayList<process> ready = new ArrayList<process>();
+
+		ArrayList<process> blocked = new ArrayList<process>();
+		ArrayList<process> notStarted = new ArrayList<process>(); //Process that hasn't started
+		ArrayList<process> finished = new ArrayList<process>();
+
+		//Finding our shortest guy to start with
+		running = processList.get(0);
+
+		//Everything else is waiting
+		for (int i = 1; i < processList.size(); i++) {
+			if (processList.get(i).getA() == 0) {
+				ready.add(processList.get(i)); //Put them in the back
+			}
+
+			else
+				notStarted.add(processList.get(i));
+		}
+
+		if (running != null) { //Getting our necessary time
+			try {
+				CPUburst = RandomOS(running.getB(), randFile); 
+				running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
+			}
+
+			catch (FileNotFoundException e) {
+				System.out.println("Random number generator not found");
+				System.exit(0);
+			}
+		}
+
+		//Printing for verbose mode. Gonna need to add how much time it has left
+		while (finished.size() < origSize ) {
+			//Maybe check for new shortest here?
+
+			minIndex = -1;
+			int shortest = -1000000; //Big sentinel
+			for (int i = 0; i < ready.size(); i++) {
+				if (ready.get(i).getPenaltyRatio() > running.getPenaltyRatio()) { //Bug is where I get you
+					minIndex = i;
+					shortest = ready.get(i).getPenaltyRatio();
+				}
+			}
+
+			//Check for non-zero CPU time around here
+			if (minIndex >= 0 && !ready.isEmpty()) {
+				ready.add(running);
+				running = ready.get(minIndex);
+				ready.remove(minIndex);
+				if (running.getRemainingCPU() <= 0) {
+					try {
+						CPUburst = RandomOS(running.getB(), randFile);
+						running.setRemainingCPU(CPUburst);
+						if (CPUburst > running.getC() - running.getTimeRun()) {
+							CPUburst = running.getC() - running.getTimeRun();
+						}
+					}
+
+					catch (FileNotFoundException e) {
+						System.out.println("RNG not found");
+					}
+				}
+			}
+
+
+			if (verbose) { 
+				System.out.printf("\nBefore cycle %d:\n", cycle);
+				for (int i = 0; i < origSize; i ++) {
+					if (running != null && running.getPID() == i) {
+						System.out.printf("Process %d is running (%d)  ", running.getPID(), running.getRemainingCPU());
+					}
+
+					for (int j = 0; j < ready.size(); j++) {
+						if (ready.get(j).getPID() == i) {
+							System.out.printf("Process %d is ready   ", ready.get(j).getPID());
+						}
+					}
+
+
+					for (int j = 0; j < blocked.size(); j++) {
+						if (blocked.get(j).getPID() == i) {
+							System.out.printf("Process %d is blocked (%d)   ", blocked.get(j).getPID(), blocked.get(j).getRemainingIO());
+						}
+					}
+
+
+					for (int j = 0; j < notStarted.size(); j++) {
+						if (notStarted.get(j).getPID() == i) {
+							System.out.printf("Process %d has not started   ", notStarted.get(j).getPID());
+						}
+					}
+				}
+			}
+
+
+
+			//Blocked process
+			for (int i = 0; i < blocked.size(); i ++) {
+				blocked.get(i).increment(2);
+			}
+
+			//running process
+			if (running != null) {
+				running.increment(0);
+			}
+
+			//Waiting process
+			for (int i = 0; i < notStarted.size(); i++) {
+				if (cycle == notStarted.get(i).getA()) {
+					ready.add(notStarted.get(i));
+				}
+
+				else {
+					notStarted.get(i).increment(3);
+				}
+			}
+
+			for (int i = 0; i < notStarted.size(); i++) {
+				if (ready.contains(notStarted.get(i))) {
+					notStarted.remove(i);
+				}
+			}
+
+			//Ready process
+			for (int i  = 0; i < ready.size(); i++) {
+				ready.get(i).increment(1);
+			}
+
+			if (running != null && running.getTimeRun() == running.getC()) {
+				finished.add(running);
+				running = null;
+			}
+
+			//Check for a new shortest yob
+			//Keep track of currently shortest ready job
+			//Swap if needed
+
+			minIndex = 0;
+			shortest = -1000000;
+			for (int i = 0; i < ready.size(); i++) {
+				if (ready.get(i).getPenaltyRatio() > shortest) { //Bug is where I get you
+					minIndex = i;
+					shortest = ready.get(i).getPenaltyRatio();
+				}
+			}
+
+
+			//Check if things need to be swapped out
+			if (running != null && running.getRemainingCPU() <= 0) {
+				IOburst = CPUburst * running.getM();
+				running.setRemainingIO(IOburst);
+				blocked.add(running);
+
+				if (!ready.isEmpty()) {
+					running = ready.get(minIndex); //Had to change from .pop() since it's no longer a linked list. I might be where a bug is
+					ready.remove(minIndex);
+					try {
+						CPUburst = RandomOS(running.getB(), randFile); 
+						if (CPUburst > running.getC() - running.getTimeRun()) {
+							CPUburst = running.getC() - running.getTimeRun();
+						}
+						running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
+					}
+
+					catch (FileNotFoundException e) {
+						System.out.println("Random number generator not found");
+						System.exit(0);
+					}
+			
+				}
+
+				else {
+					running = null; //Can eventually use this as a check for if there's one process left
+				}
+			}
+
+			if (minIndex > ready.size() - 1) {
+				minIndex = 0;
+			}
+
+
+			//New shortest job requires a switch
+			if (running != null && !ready.isEmpty() && !ready.get(minIndex).equals(running)) {
+
+				ready.add(running);
+				running = ready.get(minIndex);
+				ready.remove(minIndex);
+			}
+
+
+
+			for (int i  = 0; i < blocked.size(); i++) {
+				if (blocked.get(i).getRemainingIO() <= 0) {
+					ready.add(blocked.get(i));
+					blocked.remove(i);
+				}
+			}
+
+			if (running == null && !ready.isEmpty()) {
+				running = ready.get(0); //If there's one process left, bring that bitch back
+				ready.remove(0);
+				try {
+					CPUburst = RandomOS(running.getB(), randFile); 
+					running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
+					if (CPUburst > running.getC() - running.getTimeRun()) {
+						CPUburst = running.getC() - running.getTimeRun();
+					}
+				}
+
+				catch (FileNotFoundException e) {
+					System.out.println("Random number generator not found");
+					System.exit(0);
+				}
+			}
+
+			cycle++;
+
+		}
+
+		//Printing stuff
+		System.out.println("\nScheduling algorithm: HPRN");		
+		printSummary(finished);
+
+		randFile.close();
 		return;
 	}
 
