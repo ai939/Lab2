@@ -101,10 +101,10 @@ public class scheduler {
 
 		try {
 
-			//FCFS(processListFCFS, false);
+			FCFS(processListFCFS, false);
 			//RR(processListRR, false);
 			//SJF(processListSJF, false);
-			HPRN(processListHPRN, false);
+			//HPRN(processListHPRN, false);
 		}
 
 		catch (Exception e) {
@@ -144,10 +144,10 @@ public class scheduler {
 			C = in.nextInt();
 			M = in.nextInt();
 
-			process toAdd1 = new process(A, B, C, M, i);
-			process toAdd2 = new process(A, B, C, M, i);
-			process toAdd3 = new process(A, B, C, M, i);
-			process toAdd4 = new process(A, B, C, M, i);
+			process toAdd1 = new process(A, B, C, M);
+			process toAdd2 = new process(A, B, C, M);
+			process toAdd3 = new process(A, B, C, M);
+			process toAdd4 = new process(A, B, C, M);
 			processListFCFS.add(toAdd1);
 			processListRR.add(toAdd2);
 			processListSJF.add(toAdd3);
@@ -167,10 +167,10 @@ public class scheduler {
 		}
 
 		try {
-			//FCFS(processListFCFS, true);
+			FCFS(processListFCFS, true);
 			//RR(processListRR, true);
 			//SJF(processListSJF, true);
-			HPRN(processListHPRN, true);
+			//HPRN(processListHPRN, true);
 		}
 
 		catch (Exception e) {
@@ -235,8 +235,27 @@ public class scheduler {
 
 		//Printing for verbose mode. Gonna need to add how much time it has left
 		while (finished.size() < processList.size()) {
+			//To see if there's a tiebreak that needs fixing
+			if (running != null && running.getA() == cycle) { //I don't think this is going to work because if there's more than one process, it might get knocked too far back
+				if (!ready.isEmpty() && ready.peek().getPID() < running.getPID()) {
+					ready.addLast(running);
+					running = ready.pop();
+
+					if (running.getRemainingCPU() <= 0) {
+						try {
+							CPUburst = RandomOS(running.getB(), randFile);
+							running.setRemainingCPU(CPUburst);
+						}
+
+						catch (FileNotFoundException e) {
+							System.out.println("RNG not found");
+						}
+					}
+				}
+			}
+
 			if (verbose) { 
-				System.out.printf("\nBefore cycle %d:\n", cycle);
+				System.out.printf("\nBefore cycle %d:\n", cycle + 1);
 				for (int i = 0; i < processList.size(); i ++) {
 					if (running != null && running.getPID() == i) {
 						System.out.printf("Process %d is running (%d)  ", running.getPID(), running.getRemainingCPU());
@@ -261,6 +280,12 @@ public class scheduler {
 							System.out.printf("Process %d has not started   ", notStarted.get(j).getPID());
 						}
 					}
+
+					for (int j = 0; j < finished.size(); j++) {
+						if (finished.get(j).getPID() == i) {
+							System.out.printf("Process %d has finished   ", finished.get(j).getPID());
+						}
+					}
 				}
 			}
 
@@ -278,8 +303,8 @@ public class scheduler {
 
 			//Waiting process
 			for (int i = 0; i < notStarted.size(); i++) {
-				if (cycle == notStarted.get(i).getA()) {
-					ready.addLast(notStarted.get(i));
+				if (cycle + 1 == notStarted.get(i).getA()) { //It's at the end of the cycle, so we need to know if it should be added
+					ready.addLast(notStarted.get(i)); //into the ready list for the next cycle
 				}
 
 				else {
@@ -290,6 +315,7 @@ public class scheduler {
 			for (int i = 0; i < notStarted.size(); i++) {
 				if (ready.contains(notStarted.get(i))) {
 					notStarted.remove(i);
+					i--; //Since something got removed, the list size shrinks, and we need to account for that
 				}
 			}
 
@@ -358,7 +384,7 @@ public class scheduler {
 		}
 
 		//Printing stuff
-		System.out.println("Scheduling algorithm: FCFS");		
+		System.out.println("\nScheduling algorithm: FCFS");		
 		printSummary(finished);
 
 		randFile.close();
@@ -439,6 +465,12 @@ public class scheduler {
 					for (int j = 0; j < notStarted.size(); j++) {
 						if (notStarted.get(j).getPID() == i) {
 							System.out.printf("Process %d has not started   ", notStarted.get(j).getPID());
+						}
+					}
+
+										for (int j = 0; j < finished.size(); j++) {
+						if (finished.get(j).getPID() == i) {
+							System.out.printf("Process %d has finished   ", finished.get(j).getPID());
 						}
 					}
 				}
@@ -675,6 +707,12 @@ public class scheduler {
 					for (int j = 0; j < notStarted.size(); j++) {
 						if (notStarted.get(j).getPID() == i) {
 							System.out.printf("Process %d has not started   ", notStarted.get(j).getPID());
+						}
+					}
+
+					for (int j = 0; j < finished.size(); j++) {
+						if (finished.get(j).getPID() == i) {
+							System.out.printf("Process %d has finished   ", finished.get(j).getPID());
 						}
 					}
 				}
@@ -917,6 +955,12 @@ public class scheduler {
 					for (int j = 0; j < notStarted.size(); j++) {
 						if (notStarted.get(j).getPID() == i) {
 							System.out.printf("Process %d has not started   ", notStarted.get(j).getPID());
+						}
+					}
+
+					for (int j = 0; j < finished.size(); j++) {
+						if (finished.get(j).getPID() == i) {
+							System.out.printf("Process %d has finished   ", finished.get(j).getPID());
 						}
 					}
 				}
