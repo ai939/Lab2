@@ -8,6 +8,8 @@ public class process implements Comparable<process> {
 	private int IOtime = 0;
 	private int waiting = 0;
 
+	private int CPUburst = 0;
+
 	private int remainingCPU = 0;
 	private int remainingIOtime = 0;
 	private int timeRun = 0;
@@ -106,6 +108,14 @@ public class process implements Comparable<process> {
 
 	public void setPID(int PID) {
 		this.PID = PID;
+	}
+
+	public int getCPUburst() {
+		return CPUburst;
+	}
+
+	public void setCPUburst(int burst) {
+		this.CPUburst = burst;
 	}
 
 
