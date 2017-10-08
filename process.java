@@ -38,6 +38,7 @@ public class process implements Comparable<process> {
 			case 0: remainingCPU -= 1; timeRun += 1; break;
 			case 1: waiting += 1; break;
 			case 2: IOtime += 1; remainingIOtime -= 1; break;
+			case 3: waiting -= 1; finish -= 1; break;
 			default: break;
 
 		}

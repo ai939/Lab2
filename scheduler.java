@@ -101,10 +101,10 @@ public class scheduler {
 
 		try {
 
-			FCFS(processListFCFS, false);
-			//RR(processListRR, false);
-			//SJF(processListSJF, false);
-			//HPRN(processListHPRN, false);
+			//FCFS(processListFCFS, false);
+			 RR(processListRR, false);
+			// SJF(processListSJF, false);
+			// HPRN(processListHPRN, false);
 		}
 
 		catch (Exception e) {
@@ -193,6 +193,8 @@ public class scheduler {
 	Or something. I think this is why things aren't adding up properly for the longer runs.
 	*/
 
+	//Input 5,7 is still off by 1 with the same problem: one of the waiting times is getting incremented by 1 extra
+
 	public static void FCFS(ArrayList<process> processList, boolean verbose) throws Exception {
 
 		Scanner randFile = new Scanner(randNums);
@@ -235,24 +237,6 @@ public class scheduler {
 
 		//Printing for verbose mode. Gonna need to add how much time it has left
 		while (finished.size() < processList.size()) {
-			//To see if there's a tiebreak that needs fixing
-			if (running != null && running.getA() == cycle) { //I don't think this is going to work because if there's more than one process, it might get knocked too far back
-				if (!ready.isEmpty() && ready.peek().getPID() < running.getPID()) {
-					ready.addLast(running);
-					running = ready.pop();
-
-					if (running.getRemainingCPU() <= 0) {
-						try {
-							CPUburst = RandomOS(running.getB(), randFile);
-							running.setRemainingCPU(CPUburst);
-						}
-
-						catch (FileNotFoundException e) {
-							System.out.println("RNG not found");
-						}
-					}
-				}
-			}
 
 			if (verbose) { 
 				System.out.printf("\nBefore cycle %d:\n", cycle + 1);
@@ -304,11 +288,12 @@ public class scheduler {
 			//Waiting process
 			for (int i = 0; i < notStarted.size(); i++) {
 				if (cycle + 1 == notStarted.get(i).getA()) { //It's at the end of the cycle, so we need to know if it should be added
+					notStarted.get(i).increment(3);
 					ready.addLast(notStarted.get(i)); //into the ready list for the next cycle
 				}
 
 				else {
-					notStarted.get(i).increment(3);
+					notStarted.get(i).increment(4);
 				}
 			}
 
@@ -335,7 +320,7 @@ public class scheduler {
 				running.setRemainingIO(IOburst);
 				blocked.add(running);
 
-				if (!ready.isEmpty()) {
+				if (!ready.isEmpty() && ready.peek().getA() != cycle + 1) {
 					running = ready.pop();
 					try {
 						CPUburst = RandomOS(running.getB(), randFile); 
@@ -352,33 +337,40 @@ public class scheduler {
 			
 				}
 
+
 				else {
 					running = null; //Can eventually use this as a check for if there's one process left
 				}
 			}
 
-
+			sortListPID(blocked);
 
 			for (int i  = 0; i < blocked.size(); i++) {
-				if (blocked.get(i).getRemainingIO() <= 0) {
+				if (blocked.get(i).getRemainingIO() <= 0) { //The issue is if more than one process gets unblocked
 					ready.addLast(blocked.get(i));
 					blocked.remove(i);
+					i--;
 				}
 			}
 
-			if (running == null && !ready.isEmpty()) {
+			if (running == null && !ready.isEmpty()) {				
+				while (ready.peek().getA() == cycle + 1) {
+					process temp = ready.pop();
+					ready.addLast(temp);
+				}
 				running = ready.pop(); //If there's one process left, bring that bitch back
-				try {
-					CPUburst = RandomOS(running.getB(), randFile); 
-					running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
-				}
+				if (running.getRemainingCPU() <= 0) {
+					try {
+						CPUburst = RandomOS(running.getB(), randFile); 
+						running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
+					}
 
-				catch (FileNotFoundException e) {
-					System.out.println("Random number generator not found");
-					System.exit(0);
+					catch (FileNotFoundException e) {
+						System.out.println("Random number generator not found");
+						System.exit(0);
+					}
 				}
 			}
-
 			cycle++;
 
 		}
@@ -442,7 +434,7 @@ public class scheduler {
 		//Printing for verbose mode. Gonna need to add how much time it has left
 		while (finished.size() < processList.size()) {
 			if (verbose) { 
-				System.out.printf("\nBefore cycle %d:\n", cycle);
+				System.out.printf("\nBefore cycle %d:\n", cycle + 1);
 				for (int i = 0; i < processList.size(); i ++) {
 					if (running != null && running.getPID() == i) {
 						System.out.printf("Process %d is running (%d)  ", running.getPID(), running.getRemainingCPU());
@@ -491,18 +483,20 @@ public class scheduler {
 
 			//Waiting process
 			for (int i = 0; i < notStarted.size(); i++) {
-				if (cycle == notStarted.get(i).getA()) {
-					ready.addLast(notStarted.get(i));
+				if (cycle + 1 == notStarted.get(i).getA()) { //It's at the end of the cycle, so we need to know if it should be added
+					notStarted.get(i).increment(3);
+					ready.addLast(notStarted.get(i)); //into the ready list for the next cycle
 				}
 
 				else {
-					notStarted.get(i).increment(3);
+					notStarted.get(i).increment(4);
 				}
 			}
 
 			for (int i = 0; i < notStarted.size(); i++) {
 				if (ready.contains(notStarted.get(i))) {
 					notStarted.remove(i);
+					i--; //Since something got removed, the list size shrinks, and we need to account for that
 				}
 			}
 
@@ -522,7 +516,7 @@ public class scheduler {
 				running.setRemainingIO(IOburst);
 				blocked.add(running);
 
-				if (!ready.isEmpty()) {
+				if (!ready.isEmpty()  && ready.peek().getA() != cycle + 1) {
 					running = ready.pop();
 					try {
 						CPUburst = RandomOS(running.getB(), randFile); 
@@ -565,16 +559,21 @@ public class scheduler {
 				quant = 0;
 			}
 
-
+			sortListPID(blocked);
 
 			for (int i  = 0; i < blocked.size(); i++) {
-				if (blocked.get(i).getRemainingIO() <= 0) {
+				if (blocked.get(i).getRemainingIO() <= 0) { //The issue is if more than one process gets unblocked
 					ready.addLast(blocked.get(i));
 					blocked.remove(i);
+					i--;
 				}
 			}
 
 			if (running == null && !ready.isEmpty()) {
+				while (ready.peek().getA() == cycle + 1) {
+					process temp = ready.pop();
+					ready.addLast(temp);
+				}
 				running = ready.pop(); //If there's one process left, bring that bitch back
 				try {
 					CPUburst = RandomOS(running.getB(), randFile); 
@@ -684,7 +683,7 @@ public class scheduler {
 
 
 			if (verbose) { 
-				System.out.printf("\nBefore cycle %d:\n", cycle);
+				System.out.printf("\nBefore cycle %d:\n", cycle + 1);
 				for (int i = 0; i < origSize; i ++) {
 					if (running != null && running.getPID() == i) {
 						System.out.printf("Process %d is running (%d)  ", running.getPID(), running.getRemainingCPU());
@@ -732,12 +731,20 @@ public class scheduler {
 
 			//Waiting process
 			for (int i = 0; i < notStarted.size(); i++) {
-				if (cycle == notStarted.get(i).getA()) {
-					ready.add(notStarted.get(i));
+				if (cycle + 1 == notStarted.get(i).getA()) { //It's at the end of the cycle, so we need to know if it should be added
+					notStarted.get(i).increment(3);
+					ready.add(notStarted.get(i)); //into the ready list for the next cycle
 				}
 
 				else {
-					notStarted.get(i).increment(3);
+					notStarted.get(i).increment(4);
+				}
+			}
+
+			for (int i = 0; i < notStarted.size(); i++) {
+				if (ready.contains(notStarted.get(i))) {
+					notStarted.remove(i);
+					i--; //Since something got removed, the list size shrinks, and we need to account for that
 				}
 			}
 
@@ -813,12 +820,13 @@ public class scheduler {
 				ready.remove(minIndex);
 			}
 
-
+			sortListPID(blocked);
 
 			for (int i  = 0; i < blocked.size(); i++) {
-				if (blocked.get(i).getRemainingIO() <= 0) {
+				if (blocked.get(i).getRemainingIO() <= 0) { //The issue is if more than one process gets unblocked
 					ready.add(blocked.get(i));
 					blocked.remove(i);
+					i--;
 				}
 			}
 
@@ -932,7 +940,7 @@ public class scheduler {
 
 
 			if (verbose) { 
-				System.out.printf("\nBefore cycle %d:\n", cycle);
+				System.out.printf("\nBefore cycle %d:\n", cycle + 1);
 				for (int i = 0; i < origSize; i ++) {
 					if (running != null && running.getPID() == i) {
 						System.out.printf("Process %d is running (%d)  ", running.getPID(), running.getRemainingCPU());
@@ -980,12 +988,20 @@ public class scheduler {
 
 			//Waiting process
 			for (int i = 0; i < notStarted.size(); i++) {
-				if (cycle == notStarted.get(i).getA()) {
-					ready.add(notStarted.get(i));
+				if (cycle + 1 == notStarted.get(i).getA()) { //It's at the end of the cycle, so we need to know if it should be added
+					notStarted.get(i).increment(3);
+					ready.add(notStarted.get(i)); //into the ready list for the next cycle
 				}
 
 				else {
-					notStarted.get(i).increment(3);
+					notStarted.get(i).increment(4);
+				}
+			}
+
+			for (int i = 0; i < notStarted.size(); i++) {
+				if (ready.contains(notStarted.get(i))) {
+					notStarted.remove(i);
+					i--; //Since something got removed, the list size shrinks, and we need to account for that
 				}
 			}
 
@@ -1061,12 +1077,13 @@ public class scheduler {
 				ready.remove(minIndex);
 			}
 
-
+			sortListPID(blocked);
 
 			for (int i  = 0; i < blocked.size(); i++) {
-				if (blocked.get(i).getRemainingIO() <= 0) {
+				if (blocked.get(i).getRemainingIO() <= 0) { //The issue is if more than one process gets unblocked
 					ready.add(blocked.get(i));
 					blocked.remove(i);
+					i--;
 				}
 			}
 
@@ -1117,6 +1134,22 @@ public class scheduler {
 
 		for (int i = 0; i < processList.size(); i++) {
 			processList.get(i).setPID(i);
+		}
+	}
+
+	public static void sortListPID(ArrayList<process> processList) {
+		//Sort the list based on arrival time for later for later
+		for (int i = 0; i < processList.size(); i++) {
+			int minIndex = i;
+			for (int j = i + 1; j < processList.size(); j++) {
+				if (processList.get(j).getPID() < processList.get(minIndex).getPID()) {
+					minIndex = j;
+				}
+
+				process temp = processList.get(minIndex);
+				processList.set(minIndex, processList.get(i));
+				processList.set(i, temp);
+			}
 		}
 	}
 
