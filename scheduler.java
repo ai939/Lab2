@@ -1,25 +1,8 @@
 import java.util.*;
 import java.io.*;
 
-/*
-Plan:
-1) Create some sort of process table in the schedule method
-2) Pass that to the individual scheduling algorithm methods
-3) Print result (probably make its own method for cleaner code)
-
-Things I need:
-1) How do I store the processes?
-Idea is to have a quadruple for each of the four integers
-It would need a lot of parameters though
-A, B, C, M, state, and various times that need to be held on to
-
-2) How to print the final summary
-This will be done all within the method. This doesn't need any
-new class. I think we save this for last
-*/
-
-//A is arrival, B is interval for CPU burst time, C is time needed, M is used for IO time
-
+//Realizing now the while loop to get something that was just added to the end might cause an infinite loop
+//Depending on what other inputs they use
 public class scheduler {
 	final static File randNums = new File("random-numbers.txt");
 
@@ -101,10 +84,10 @@ public class scheduler {
 
 		try {
 
-			//FCFS(processListFCFS, false);
-			 RR(processListRR, false);
+			// FCFS(processListFCFS, false);
+			// RR(processListRR, false);
 			// SJF(processListSJF, false);
-			// HPRN(processListHPRN, false);
+			HPRN(processListHPRN, false);
 		}
 
 		catch (Exception e) {
@@ -168,9 +151,9 @@ public class scheduler {
 
 		try {
 			//FCFS(processListFCFS, true);
-			RR(processListRR, true);
+			//RR(processListRR, true);
 			//SJF(processListSJF, true);
-			//HPRN(processListHPRN, true);
+			HPRN(processListHPRN, true);
 		}
 
 		catch (Exception e) {
@@ -417,7 +400,7 @@ public class scheduler {
 			}
 		}
 
-		//Printing for verbose mode. Gonna need to add how much time it has left
+		//Printing for verbose mode. 
 		while (finished.size() < processList.size()) {
 			if (verbose) { 
 				System.out.printf("\nBefore cycle %d:\n", cycle + 1);
@@ -472,7 +455,6 @@ public class scheduler {
 				if (cycle + 1 == notStarted.get(i).getA()) { //It's at the end of the cycle, so we need to know if it should be added
 					notStarted.get(i).increment(3);
 					ready.addLast(notStarted.get(i)); //into the ready list for the next cycle
-					//readied++;
 				}
 
 				else {
@@ -585,7 +567,7 @@ public class scheduler {
 					try {
 						CPUburst = RandomOS(running.getB(), randFile); 
 						running.setCPUburst(CPUburst);
-						running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
+						running.setRemainingCPU(CPUburst); 
 					}
 
 					catch (FileNotFoundException e) {
@@ -594,11 +576,6 @@ public class scheduler {
 					}
 				}
 			}
-
-			// if (readied > 1) {
-			// 	sortListPID(ready);
-			// }
-
 			cycle++;
 			readied = 0;
 
@@ -611,12 +588,12 @@ public class scheduler {
 		return;
 	}
 
-	//Shortest Job First
+	//Shortest Job First (non-preemptive)
 	//After every cycle, run through the ready list for the shortest one.
 	//Also, 4 and 5 still don't work
 	public static void SJF(ArrayList<process> processList, boolean verbose) throws Exception {
+
 		Scanner randFile = new Scanner(randNums);
-		int origSize = processList.size();
 
 		int completed = 0;
 		int cycle = 0;
@@ -627,13 +604,18 @@ public class scheduler {
 
 		ArrayList<process> blocked = new ArrayList<process>();
 		ArrayList<process> notStarted = new ArrayList<process>(); //Process that hasn't started
-		ArrayList<process> finished = new ArrayList<process>();
+		ArrayList<process> finished = new ArrayList<process>(processList.size());
 
-		//Finding our shortest guy to start with
-		int minIndex = 0;
+		int origSize = processList.size();
+
+		int minIndex = 0; //For finding our shortest yob
+		int shortestTime = 100000; //Large default sentinel
+
+		//Find our original shortest process
 		for (int i = 0; i < processList.size(); i++) {
-			if (processList.get(i).getC() < processList.get(minIndex).getC() && processList.get(i).getA() <= 0) { //In general, it's gonna be getC - timeRun
+			if (processList.get(i).getC() < shortestTime && processList.get(i).getA() <= 0) {
 				minIndex = i;
+				shortestTime = processList.get(i).getC();
 			}
 		}
 
@@ -641,7 +623,7 @@ public class scheduler {
 		processList.remove(minIndex);
 
 		//Everything else is waiting
-		for (int i = 0; i < processList.size(); i++) { //Since we removed the first one running, we start back at zero and go up to the new size
+		for (int i = 0; i < processList.size(); i++) {
 			if (processList.get(i).getA() == 0) {
 				ready.add(processList.get(i)); //Put them in the back
 			}
@@ -662,39 +644,9 @@ public class scheduler {
 			}
 		}
 
+
 		//Printing for verbose mode. Gonna need to add how much time it has left
-		while (finished.size() < origSize ) {
-			//Maybe check for new shortest here?
-
-			minIndex = -1;
-			int shortest = 1000000; //Big sentinel
-			for (int i = 0; i < ready.size(); i++) {
-				if (ready.get(i).getC() - ready.get(i).getTimeRun() < running.getC() - running.getTimeRun()) { //Bug is where I get you
-					minIndex = i;
-					shortest = ready.get(i).getC() - ready.get(i).getTimeRun();
-				}
-			}
-
-			//Check for non-zero CPU time around here
-			if (minIndex >= 0 && !ready.isEmpty()) {
-				ready.add(running);
-				running = ready.get(minIndex);
-				ready.remove(minIndex);
-				if (running.getRemainingCPU() <= 0) {
-					try {
-						CPUburst = RandomOS(running.getB(), randFile);
-						running.setRemainingCPU(CPUburst);
-						if (CPUburst > running.getC() - running.getTimeRun()) {
-							CPUburst = running.getC() - running.getTimeRun();
-						}
-					}
-
-					catch (FileNotFoundException e) {
-						System.out.println("RNG not found");
-					}
-				}
-			}
-
+		while (finished.size() < origSize) {
 
 			if (verbose) { 
 				System.out.printf("\nBefore cycle %d:\n", cycle + 1);
@@ -762,12 +714,6 @@ public class scheduler {
 				}
 			}
 
-			for (int i = 0; i < notStarted.size(); i++) {
-				if (ready.contains(notStarted.get(i))) {
-					notStarted.remove(i);
-				}
-			}
-
 			//Ready process
 			for (int i  = 0; i < ready.size(); i++) {
 				ready.get(i).increment(1);
@@ -778,19 +724,13 @@ public class scheduler {
 				running = null;
 			}
 
-			//Check for a new shortest yob
-			//Keep track of currently shortest ready job
-			//Swap if needed
-
-			minIndex = 0;
-			shortest = 1000000;
-			for (int i = 0; i < ready.size(); i++) {
-				if (ready.get(i).getC() - ready.get(i).getTimeRun() < shortest) { //Bug is where I get you
-					minIndex = i;
-					shortest = ready.get(i).getC() - ready.get(i).getTimeRun();
+			for (int i  = 0; i < blocked.size(); i++) {
+				if (blocked.get(i).getRemainingIO() <= 0) { //The issue is if more than one process gets unblocked
+					ready.add(blocked.get(i));
+					blocked.remove(i);
+					i--;
 				}
 			}
-
 
 			//Check if things need to be swapped out
 			if (running != null && running.getRemainingCPU() <= 0) {
@@ -799,7 +739,17 @@ public class scheduler {
 				blocked.add(running);
 
 				if (!ready.isEmpty()) {
-					running = ready.get(minIndex); //Had to change from .pop() since it's no longer a linked list. I might be where a bug is
+					//Need to find new shortest job here
+					minIndex = 0;
+					shortestTime = 100000;
+					for (int i = 0; i < ready.size(); i++) {
+						if (ready.get(i).getC() - ready.get(i).getTimeRun() < shortestTime) {
+							minIndex = i;
+							shortestTime = ready.get(i).getC() - ready.get(i).getTimeRun();
+						}
+					}
+
+					running = ready.get(minIndex);
 					ready.remove(minIndex);
 					try {
 						CPUburst = RandomOS(running.getB(), randFile); 
@@ -816,51 +766,40 @@ public class scheduler {
 			
 				}
 
+
 				else {
 					running = null; //Can eventually use this as a check for if there's one process left
 				}
 			}
 
-			if (minIndex > ready.size() - 1) {
-				minIndex = 0;
-			}
-
-
-			//New shortest job requires a switch
-			if (running != null && !ready.isEmpty() && !ready.get(minIndex).equals(running)) {
-
-				ready.add(running);
-				running = ready.get(minIndex);
-				ready.remove(minIndex);
-			}
-
 			sortListPID(blocked);
 
-			for (int i  = 0; i < blocked.size(); i++) {
-				if (blocked.get(i).getRemainingIO() <= 0) { //The issue is if more than one process gets unblocked
-					ready.add(blocked.get(i));
-					blocked.remove(i);
-					i--;
-				}
-			}
 
-			if (running == null && !ready.isEmpty()) {
-				running = ready.get(0); //If there's one process left, bring that bitch back
-				ready.remove(0);
-				try {
-					CPUburst = RandomOS(running.getB(), randFile); 
-					running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
-					if (CPUburst > running.getC() - running.getTimeRun()) {
-						CPUburst = running.getC() - running.getTimeRun();
+
+			if (running == null && !ready.isEmpty()) {				
+				minIndex = 0;
+				shortestTime = 100000;
+				for (int i = 0; i < ready.size(); i++) {
+					if (ready.get(i).getC() - ready.get(i).getTimeRun() < shortestTime) {
+						minIndex = i;
+						shortestTime = ready.get(i).getC() - ready.get(i).getTimeRun();
 					}
 				}
 
-				catch (FileNotFoundException e) {
-					System.out.println("Random number generator not found");
-					System.exit(0);
+				running = ready.get(minIndex);
+				ready.remove(minIndex);
+				if (running.getRemainingCPU() <= 0) {
+					try {
+						CPUburst = RandomOS(running.getB(), randFile); 
+						running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
+					}
+
+					catch (FileNotFoundException e) {
+						System.out.println("Random number generator not found");
+						System.exit(0);
+					}
 				}
 			}
-
 			cycle++;
 
 		}
@@ -870,7 +809,10 @@ public class scheduler {
 		printSummary(finished);
 
 		randFile.close();
+		
+
 		return;
+
 	}
 
 	//Highest Penalty Ratio Next (?)
