@@ -120,8 +120,10 @@ public class process implements Comparable<process> {
 
 
 	//For HRPN
-	public int getPenaltyRatio() {
-		return finish / Math.max(1, timeRun);
+	public float getPenaltyRatio() {
+		float num = (float)(finish - A);
+		float denom = (float)(Math.max(1, timeRun));
+		return num / denom;
 	}
 
 	public String toString() {

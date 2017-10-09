@@ -84,9 +84,9 @@ public class scheduler {
 
 		try {
 
-			// FCFS(processListFCFS, false);
-			// RR(processListRR, false);
-			// SJF(processListSJF, false);
+			FCFS(processListFCFS, false);
+			RR(processListRR, false);
+			SJF(processListSJF, false);
 			HPRN(processListHPRN, false);
 		}
 
@@ -150,9 +150,9 @@ public class scheduler {
 		}
 
 		try {
-			//FCFS(processListFCFS, true);
-			//RR(processListRR, true);
-			//SJF(processListSJF, true);
+			FCFS(processListFCFS, true);
+			RR(processListRR, true);
+			SJF(processListSJF, true);
 			HPRN(processListHPRN, true);
 		}
 
@@ -167,6 +167,9 @@ public class scheduler {
 	public static void FCFS(ArrayList<process> processList, boolean verbose) throws Exception {
 
 		Scanner randFile = new Scanner(randNums);
+
+		int CPUused = 1;
+		int IOused = 0;
 
 		int completed = 0;
 		int cycle = 0;
@@ -342,11 +345,19 @@ public class scheduler {
 			}
 			cycle++;
 
+			if (running != null) {
+				CPUused++;
+			}
+
+			if (!blocked.isEmpty()) {
+				IOused++;
+			}
+
 		}
 
 		//Printing stuff
-		System.out.println("\nScheduling algorithm: FCFS");		
-		printSummary(finished);
+		System.out.println("\nScheduling algorithm: FCFS\n");		
+		printSummary(finished, CPUused, IOused);
 
 		randFile.close();
 		
@@ -356,11 +367,13 @@ public class scheduler {
 	
 
 	//Round Robin (q = 2)
-	//Same general idea as above, just have an additional check if something's been running for two to cause a swap
 	public static void RR(ArrayList<process> processList, boolean verbose) throws Exception {
 		Scanner randFile = new Scanner(randNums);
 
 		int readied = 0; //To check if we need to settle a tie
+
+		int CPUused = 1;
+		int IOused = 0;
 
 		int completed = 0;
 		int cycle = 0;
@@ -579,21 +592,30 @@ public class scheduler {
 			cycle++;
 			readied = 0;
 
+			if (running != null) {
+				CPUused++;
+			}
+
+			if (!blocked.isEmpty()) {
+				IOused++;
+			}
+
 		}
 
-		System.out.println("\nScheduling Algorithm: RR");
-		printSummary(finished);
+		System.out.println("\nScheduling Algorithm: RR\n");
+		printSummary(finished, CPUused, IOused);
 
 		randFile.close();
 		return;
 	}
 
-	//Shortest Job First (non-preemptive)
-	//After every cycle, run through the ready list for the shortest one.
-	//Also, 4 and 5 still don't work
+	//Shortest Job First 
 	public static void SJF(ArrayList<process> processList, boolean verbose) throws Exception {
 
 		Scanner randFile = new Scanner(randNums);
+
+		int CPUused = 1;
+		int IOused = 0;
 
 		int completed = 0;
 		int cycle = 0;
@@ -802,11 +824,19 @@ public class scheduler {
 			}
 			cycle++;
 
+			if (running != null) {
+				CPUused++;
+			}
+
+			if (!blocked.isEmpty()) {
+				IOused++;
+			}
+
 		}
 
 		//Printing stuff
-		System.out.println("\nScheduling algorithm: SJF");		
-		printSummary(finished);
+		System.out.println("\nScheduling algorithm: SJF\n");		
+		printSummary(finished, CPUused, IOused);
 
 		randFile.close();
 		
@@ -815,15 +845,13 @@ public class scheduler {
 
 	}
 
-	//Highest Penalty Ratio Next (?)
-	//Can really do the same thing as SJF, but replace checking job length with checking penalty ratio
-
-	//Not switching properly when things enter the system
+	//Highest Penalty Ratio Next 
+	//Technically, input 5 has the same output, but two processes are swapped around
 	public static void HPRN (ArrayList<process> processList, boolean verbose) throws Exception {
 		Scanner randFile = new Scanner(randNums);
-		int origSize = processList.size();
 
-		int minIndex = 0; //NB: change these all to max
+		int CPUused = 1; 
+		int IOused = 0;
 
 		int completed = 0;
 		int cycle = 0;
@@ -834,13 +862,26 @@ public class scheduler {
 
 		ArrayList<process> blocked = new ArrayList<process>();
 		ArrayList<process> notStarted = new ArrayList<process>(); //Process that hasn't started
-		ArrayList<process> finished = new ArrayList<process>();
+		ArrayList<process> finished = new ArrayList<process>(processList.size());
 
-		//Finding our shortest guy to start with
-		running = processList.get(0);
+		int origSize = processList.size();
+
+		int maxIndex = 0; //For finding our shortest yob
+		float highRatio = -100000; //Large default sentinel
+
+		//Find our original process
+		for (int i = 0; i < processList.size(); i++) {
+			if (processList.get(i).getPenaltyRatio() > highRatio && processList.get(i).getA() <= 0) {
+				maxIndex = i;
+				highRatio = processList.get(i).getPenaltyRatio();
+			}
+		}
+
+		running = processList.get(maxIndex);
+		processList.remove(maxIndex);
 
 		//Everything else is waiting
-		for (int i = 1; i < processList.size(); i++) {
+		for (int i = 0; i < processList.size(); i++) {
 			if (processList.get(i).getA() == 0) {
 				ready.add(processList.get(i)); //Put them in the back
 			}
@@ -852,7 +893,7 @@ public class scheduler {
 		if (running != null) { //Getting our necessary time
 			try {
 				CPUburst = RandomOS(running.getB(), randFile); 
-				running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
+				running.setRemainingCPU(CPUburst); 
 			}
 
 			catch (FileNotFoundException e) {
@@ -861,57 +902,27 @@ public class scheduler {
 			}
 		}
 
+
 		//Printing for verbose mode. Gonna need to add how much time it has left
-		while (finished.size() < origSize ) {
-			//Maybe check for new shortest here?
-
-			minIndex = -1;
-			int shortest = -1000000; //Big sentinel
-			for (int i = 0; i < ready.size(); i++) {
-				if (ready.get(i).getPenaltyRatio() > running.getPenaltyRatio()) { //Bug is where I get you
-					minIndex = i;
-					shortest = ready.get(i).getPenaltyRatio();
-				}
-			}
-
-			//Check for non-zero CPU time around here
-			if (minIndex >= 0 && !ready.isEmpty()) {
-				ready.add(running);
-				running = ready.get(minIndex);
-				ready.remove(minIndex);
-				if (running.getRemainingCPU() <= 0) {
-					try {
-						CPUburst = RandomOS(running.getB(), randFile);
-						running.setRemainingCPU(CPUburst);
-						if (CPUburst > running.getC() - running.getTimeRun()) {
-							CPUburst = running.getC() - running.getTimeRun();
-						}
-					}
-
-					catch (FileNotFoundException e) {
-						System.out.println("RNG not found");
-					}
-				}
-			}
-
+		while (finished.size() < origSize) {
 
 			if (verbose) { 
 				System.out.printf("\nBefore cycle %d:\n", cycle + 1);
 				for (int i = 0; i < origSize; i ++) {
 					if (running != null && running.getPID() == i) {
-						System.out.printf("Process %d is running (%d)  ", running.getPID(), running.getRemainingCPU());
+						System.out.printf("Process %d is running (%d) ", running.getPID(), running.getRemainingCPU());
 					}
 
 					for (int j = 0; j < ready.size(); j++) {
 						if (ready.get(j).getPID() == i) {
-							System.out.printf("Process %d is ready   ", ready.get(j).getPID());
+							System.out.printf("Process %d is ready  ", ready.get(j).getPID());
 						}
 					}
 
 
 					for (int j = 0; j < blocked.size(); j++) {
 						if (blocked.get(j).getPID() == i) {
-							System.out.printf("Process %d is blocked (%d)   ", blocked.get(j).getPID(), blocked.get(j).getRemainingIO());
+							System.out.printf("Process %d is blocked (%d)  ", blocked.get(j).getPID(), blocked.get(j).getRemainingIO());
 						}
 					}
 
@@ -961,12 +972,6 @@ public class scheduler {
 				}
 			}
 
-			for (int i = 0; i < notStarted.size(); i++) {
-				if (ready.contains(notStarted.get(i))) {
-					notStarted.remove(i);
-				}
-			}
-
 			//Ready process
 			for (int i  = 0; i < ready.size(); i++) {
 				ready.get(i).increment(1);
@@ -977,19 +982,13 @@ public class scheduler {
 				running = null;
 			}
 
-			//Check for a new shortest yob
-			//Keep track of currently shortest ready job
-			//Swap if needed
-
-			minIndex = 0;
-			shortest = -1000000;
-			for (int i = 0; i < ready.size(); i++) {
-				if (ready.get(i).getPenaltyRatio() > shortest) { //Bug is where I get you
-					minIndex = i;
-					shortest = ready.get(i).getPenaltyRatio();
+			for (int i  = 0; i < blocked.size(); i++) {
+				if (blocked.get(i).getRemainingIO() <= 0) {
+					ready.add(blocked.get(i));
+					blocked.remove(i);
+					i--;
 				}
 			}
-
 
 			//Check if things need to be swapped out
 			if (running != null && running.getRemainingCPU() <= 0) {
@@ -998,8 +997,17 @@ public class scheduler {
 				blocked.add(running);
 
 				if (!ready.isEmpty()) {
-					running = ready.get(minIndex); //Had to change from .pop() since it's no longer a linked list. I might be where a bug is
-					ready.remove(minIndex);
+					maxIndex = 0;
+					highRatio = -100000;
+					for (int i = 0; i < ready.size(); i++) {
+						if (ready.get(i).getPenaltyRatio() > highRatio) {
+							maxIndex = i;
+							highRatio = ready.get(i).getPenaltyRatio();
+						}
+					}
+
+					running = ready.get(maxIndex);
+					ready.remove(maxIndex);
 					try {
 						CPUburst = RandomOS(running.getB(), randFile); 
 						if (CPUburst > running.getC() - running.getTimeRun()) {
@@ -1015,60 +1023,59 @@ public class scheduler {
 			
 				}
 
+
 				else {
 					running = null; //Can eventually use this as a check for if there's one process left
 				}
 			}
 
-			if (minIndex > ready.size() - 1) {
-				minIndex = 0;
-			}
-
-
-			//New shortest job requires a switch
-			if (running != null && !ready.isEmpty() && !ready.get(minIndex).equals(running)) {
-
-				ready.add(running);
-				running = ready.get(minIndex);
-				ready.remove(minIndex);
-			}
-
 			sortListPID(blocked);
 
-			for (int i  = 0; i < blocked.size(); i++) {
-				if (blocked.get(i).getRemainingIO() <= 0) { //The issue is if more than one process gets unblocked
-					ready.add(blocked.get(i));
-					blocked.remove(i);
-					i--;
-				}
-			}
 
-			if (running == null && !ready.isEmpty()) {
-				running = ready.get(0); //If there's one process left, bring that bitch back
-				ready.remove(0);
-				try {
-					CPUburst = RandomOS(running.getB(), randFile); 
-					running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
-					if (CPUburst > running.getC() - running.getTimeRun()) {
-						CPUburst = running.getC() - running.getTimeRun();
+
+			if (running == null && !ready.isEmpty()) {				
+				maxIndex = 0;
+				highRatio = -100000;
+				for (int i = 0; i < ready.size(); i++) {
+					if (ready.get(i).getPenaltyRatio() > highRatio) {
+						maxIndex = i;
+						highRatio = ready.get(i).getPenaltyRatio();
 					}
 				}
 
-				catch (FileNotFoundException e) {
-					System.out.println("Random number generator not found");
-					System.exit(0);
+				running = ready.get(maxIndex);
+				ready.remove(maxIndex);
+				if (running.getRemainingCPU() <= 0) {
+					try {
+						CPUburst = RandomOS(running.getB(), randFile); 
+						running.setRemainingCPU(CPUburst); //Maybe add in check for the burst being longer than finishing time
+					}
+
+					catch (FileNotFoundException e) {
+						System.out.println("Random number generator not found");
+						System.exit(0);
+					}
 				}
 			}
-
 			cycle++;
+
+			if (running != null) {
+				CPUused++;
+			}
+
+			if (!blocked.isEmpty()) {
+				IOused++;
+			}
 
 		}
 
 		//Printing stuff
-		System.out.println("\nScheduling algorithm: HPRN");		
-		printSummary(finished);
+		System.out.println("\nScheduling algorithm: HPRN\n");		
+		printSummary(finished, CPUused, IOused);
 
 		randFile.close();
+		
+
 		return;
 	}
 
@@ -1139,7 +1146,7 @@ public class scheduler {
 	}
 
 	//Need to add in final summary here
-	public static void printSummary(ArrayList<process> processList) {
+	public static void printSummary(ArrayList<process> processList, int CPUused, int IOused) {
 
 		for (int i = 0; i < processList.size(); i++) {
 			for (int j = 0; j < processList.size(); j++) {
@@ -1153,5 +1160,29 @@ public class scheduler {
 				}
 			}
 		}
+
+		System.out.println("Summary data: ");
+
+		int finishTime = 0;
+		float totalTurn = 0;
+		float totalWait = 0;
+		for (int i = 0; i < processList.size(); i++) {
+			if (processList.get(i).getFinish() > finishTime) {
+				finishTime = processList.get(i).getFinish();
+			}
+			totalTurn += processList.get(i).getTurnaround();
+			totalWait += processList.get(i).getWaiting();
+		}
+
+		float avgTurn = totalTurn / processList.size();
+		float avgWait = totalWait / processList.size();
+		float through = (float)processList.size() / finishTime;
+
+		System.out.printf("Finishing time: %d\n", finishTime);
+		System.out.printf("CPU Utilization: %f\n", (float)CPUused / finishTime);
+		System.out.printf("IO Utilization: %f\n", (float)IOused / finishTime);
+		System.out.printf("Throughput: %f processes per hundred cycles\n", through * 100);
+		System.out.printf("Average Turnaround time: %f\n", avgTurn);
+		System.out.printf("Average Waiting Time: %f\n", avgWait);
 	}
 }
